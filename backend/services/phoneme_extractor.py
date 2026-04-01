@@ -5,7 +5,7 @@ import logging
 logger = logging.getLogger("SANKEYTHIKA.Phonemes")
 
 class PhonemeExtractor:
-    def __init__(self, espeak_path: str = "espeak-ng"):
+    def __init__(self, espeak_path: str = r"C:\Program Files\eSpeak NG\espeak-ng.exe"):
         self.espeak_path = espeak_path
         # Viseme mapping table based on simplified phoneme groups
         self.viseme_map = {
