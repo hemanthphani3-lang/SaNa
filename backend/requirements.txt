@@ -1,0 +1,16 @@
+fastapi
+uvicorn
+python-multipart
+requests
+numpy
+faiss-cpu
+sentence-transformers
+torch
+transformers
+langdetect
+openai-whisper
+librosa
+soundfile
+pydantic
+python-dotenv
+espeakng

@@ -1,0 +1,29 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+venv/
+env/
+.env
+
+# Node.js
+node_modules/
+dist/
+dist-ssr/
+*.local
+
+# Mobile
+.expo/
+*.jks
+*.p12
+*.key
+*.mobileprovision
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Build artifacts
+build/
+bin/
+obj/
