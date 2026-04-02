@@ -7,7 +7,7 @@ import './App.css';
 
 const App = () => {
   const [messages, setMessages] = useState([
-    { role: 'assistant', content: 'Hello! I am SANKEYTHIKA. How can I help you today?' }
+    { role: 'assistant', content: 'I am Groot!' }
   ]);
   const [input, setInput] = useState('');
   const [visemeTimeline, setVisemeTimeline] = useState([]);
@@ -24,6 +24,57 @@ const App = () => {
 
   const [isRecording, setIsRecording] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  const recognitionRef = useRef(null);
+
+  useEffect(() => {
+    // 1. Initialize Speech Recognition
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (SpeechRecognition) {
+      recognitionRef.current = new SpeechRecognition();
+      recognitionRef.current.continuous = false;
+      recognitionRef.current.interimResults = false;
+
+      recognitionRef.current.onresult = (event) => {
+        const transcript = event.results[0][0].transcript;
+        setInput(transcript);
+        // Automatic Send
+        handleVoiceSend(transcript);
+      };
+
+      recognitionRef.current.onend = () => {
+        setIsRecording(false);
+      };
+    }
+  }, []);
+
+  const toggleListening = () => {
+    if (isRecording) {
+      recognitionRef.current?.stop();
+      setIsRecording(false);
+    } else {
+      recognitionRef.current?.start();
+      setIsRecording(true);
+    }
+  };
+
+  const speak = (text) => {
+    if (!window.speechSynthesis) return;
+    window.speechSynthesis.cancel();
+    const utterance = new SpeechSynthesisUtterance(text);
+    
+    // Viseme Sync: Randomly move mouth while speaking
+    const interval = setInterval(() => {
+      const visemes = ['A', 'E', 'O', 'I', 'U'];
+      setVisemeTimeline([{ viseme: visemes[Math.floor(Math.random() * visemes.length)], time: 1 }]);
+    }, 150);
+
+    utterance.onend = () => {
+      clearInterval(interval);
+      setVisemeTimeline([{ viseme: 'Neutral', time: 1 }]);
+    };
+
+    window.speechSynthesis.speak(utterance);
+  };
 
   const chatEndRef = useRef(null);
 
@@ -37,15 +88,22 @@ const App = () => {
 
   const handleSend = async () => {
     if (!input.trim()) return;
-
-    const userMessage = { role: 'user', content: input };
-    setMessages(prev => [...prev, userMessage]);
+    const currentInput = input;
     setInput('');
+    await processMessage(currentInput);
+  };
+
+  const handleVoiceSend = async (transcript) => {
+    await processMessage(transcript);
+  };
+
+  const processMessage = async (text) => {
+    const userMessage = { role: 'user', content: text };
+    setMessages(prev => [...prev, userMessage]);
 
     try {
-      // 1. Generate Response
       const response = await axios.post('http://localhost:8000/chat', {
-        message: input,
+        message: text,
         personality: customization.personality,
         language: customization.language
       });
@@ -53,15 +111,13 @@ const App = () => {
       const assistantMessage = { role: 'assistant', content: response.data.response };
       setMessages(prev => [...prev, assistantMessage]);
 
-      // 2. Fetch Lip Sync Data
-      // (Mocked for now - backend would provide timeline)
-      const mockTimeline = [
-        { viseme: 'A', time: 0.1 },
-        { viseme: 'O', time: 0.3 },
-        { viseme: 'M', time: 0.5 },
-        { viseme: 'Neutral', time: 0.7 }
-      ];
-      setVisemeTimeline(mockTimeline);
+      // 2. Groot Speaks
+      speak(response.data.response);
+
+      // 3. Sync Visemes from Backend (if provided)
+      if (response.data.viseme_timeline && response.data.viseme_timeline.length > 0) {
+        setVisemeTimeline(response.data.viseme_timeline);
+      }
 
     } catch (error) {
       console.error("Error sending message:", error);
@@ -70,9 +126,10 @@ const App = () => {
 
   return (
     <div className="app-main">
-      <header className="glass">
-        <div className="logo">SANKEYTHIKA AI</div>
-        <button onClick={() => setShowSettings(!showSettings)} className="icon-btn">
+      <div className="scanline"></div>
+      <header className="glass draggable">
+        <div className="logo clickable">Groot AI</div>
+        <button onClick={() => setShowSettings(!showSettings)} className="icon-btn clickable">
           <Settings size={20} />
         </button>
       </header>
@@ -93,7 +150,7 @@ const App = () => {
           </div>
 
           <div className="input-area">
-            <button className={`icon-btn ${isRecording ? 'active' : ''}`} onClick={() => setIsRecording(!isRecording)}>
+            <button className={`icon-btn ${isRecording ? 'recording' : ''}`} onClick={toggleListening}>
               <Mic size={20} />
             </button>
             <input 
