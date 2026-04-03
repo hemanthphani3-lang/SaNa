@@ -10,25 +10,26 @@ class PhonemeExtractor:
         # Viseme mapping table based on simplified phoneme groups
         self.viseme_map = {
             'a': 'A', 'e': 'A', 'i': 'A', 'o': 'O', 'u': 'O',
+            '@': 'A', 'E': 'A', 'I': 'A', 'O': 'O', 'U': 'O',
             'p': 'M', 'b': 'M', 'm': 'M', 'f': 'F', 'v': 'F',
             't': 'T', 'd': 'T', 'n': 'T', 's': 'T', 'z': 'T',
-            'S': 'T', 'Z': 'T', 'r': 'T', 'l': 'T', 'k': 'T', 'g': 'T'
+            'S': 'T', 'Z': 'T', 'r': 'T', 'l': 'T', 'k': 'T', 'g': 'T',
+            'w': 'O'
         }
 
     def get_visemes(self, text: str):
         """
         Extracts phonemes and maps them to timed visemes.
-        Actually, espeak-ng gives phoneme strings. 
-        We use subprocess to get the phonemes for a string.
         """
         try:
-            # Command to get phoneme string from text
             # -q (quiet), -x (phonemes), -v (voice)
             cmd = [self.espeak_path, "-q", "-x", "-v", "en-us", text]
             result = subprocess.run(cmd, capture_output=True, text=True, check=True)
-            phonemes = result.stdout.strip()
+            phonemes_raw = result.stdout.strip()
             
-            # Simplified viseme generation
+            # Remove stress marks and extra symbols
+            phonemes = re.sub(r"[':%@&<>=#|\\]", "", phonemes_raw)
+            
             visemes = []
             for char in phonemes:
                 if char.lower() in self.viseme_map:
@@ -36,7 +37,7 @@ class PhonemeExtractor:
                 elif char.isspace():
                     visemes.append('Neutral')
             
-            return visemes
+            return visemes if visemes else ["Neutral"]
         except Exception as e:
             logger.error(f"Phoneme extraction error: {str(e)}")
             return ["Neutral"]

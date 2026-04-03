@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import Avatar from './components/Avatar/Avatar';
+import Customizer from './components/Customization/Customizer';
+import AvatarCreator from './components/Avatar/AvatarCreator';
 import useLipSync from './hooks/useLipSync';
 import { Mic, Send, Settings, User, Volume2 } from 'lucide-react';
 import './App.css';
@@ -13,17 +15,18 @@ const App = () => {
   const [visemeTimeline, setVisemeTimeline] = useState([]);
   const { currentViseme } = useLipSync(visemeTimeline);
   
-  // Customization State
   const [customization, setCustomization] = useState({
-    skinColor: '#FFE0BD',
-    hairColor: '#4A3728',
-    clothesColor: '#3498db',
+    avatarUrl: '/models/avatar.vrm',
+    temperature: 0.9,
+    voicePitch: 1.0,
+    voiceRate: 1.0,
     personality: 'Friendly',
     language: 'English'
   });
 
   const [isRecording, setIsRecording] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  const [showAvatarStudio, setShowAvatarStudio] = useState(false);
   const recognitionRef = useRef(null);
 
   useEffect(() => {
@@ -57,29 +60,44 @@ const App = () => {
     }
   };
 
-  const speak = (text) => {
+  const speak = (text, timeline = []) => {
     if (!window.speechSynthesis) return;
     window.speechSynthesis.cancel();
     const utterance = new SpeechSynthesisUtterance(text);
     
-    // Viseme Sync: Randomly move mouth while speaking
-    const interval = setInterval(() => {
-      const visemes = ['A', 'E', 'O', 'I', 'U'];
-      setVisemeTimeline([{ viseme: visemes[Math.floor(Math.random() * visemes.length)], time: 1 }]);
-    }, 150);
+    // Apply voice settings
+    utterance.pitch = customization.voicePitch || 1;
+    utterance.rate = customization.voiceRate || 1;
+    
+    // 1. If backend provided a timeline, use it. 
+    // 2. If not, don't fallback to a mock interval (let useLipSync handle it)
+    if (timeline && timeline.length > 0) {
+      setVisemeTimeline(timeline);
+    } else {
+      // Small fallback animation if no timeline is provided
+      setVisemeTimeline([
+        { viseme: 'A', time: 0.1 },
+        { viseme: 'E', time: 0.3 },
+        { viseme: 'Neutral', time: 0.5 }
+      ]);
+    }
 
     utterance.onend = () => {
-      clearInterval(interval);
-      setVisemeTimeline([{ viseme: 'Neutral', time: 1 }]);
+      setVisemeTimeline([{ viseme: 'Neutral', time: 0 }]);
     };
 
     window.speechSynthesis.speak(utterance);
   };
 
-  const chatEndRef = useRef(null);
+  const scrollContainerRef = useRef(null);
 
   const scrollToBottom = () => {
-    chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    if (scrollContainerRef.current) {
+      scrollContainerRef.current.scrollTo({
+        top: scrollContainerRef.current.scrollHeight,
+        behavior: "smooth"
+      });
+    }
   };
 
   useEffect(() => {
@@ -105,19 +123,15 @@ const App = () => {
       const response = await axios.post('http://localhost:8000/chat', {
         message: text,
         personality: customization.personality,
-        language: customization.language
+        language: customization.language,
+        temperature: customization.temperature
       });
 
       const assistantMessage = { role: 'assistant', content: response.data.response };
       setMessages(prev => [...prev, assistantMessage]);
 
-      // 2. Groot Speaks
-      speak(response.data.response);
-
-      // 3. Sync Visemes from Backend (if provided)
-      if (response.data.viseme_timeline && response.data.viseme_timeline.length > 0) {
-        setVisemeTimeline(response.data.viseme_timeline);
-      }
+      // 2. Groot Speaks with Timeline
+      speak(response.data.response, response.data.viseme_timeline);
 
     } catch (error) {
       console.error("Error sending message:", error);
@@ -140,13 +154,12 @@ const App = () => {
         </div>
 
         <div className="chat-section glass">
-          <div className="messages">
+          <div className="messages" ref={scrollContainerRef}>
             {messages.map((m, i) => (
               <div key={i} className={`msg ${m.role}`}>
                 <div className="msg-content">{m.content}</div>
               </div>
             ))}
-            <div ref={chatEndRef} />
           </div>
 
           <div className="input-area">
@@ -167,30 +180,16 @@ const App = () => {
       </main>
 
       {showSettings && (
-        <div className="settings-panel glass">
-          <h3>Customization</h3>
-          <div className="setting-item">
-            <label>Skin</label>
-            <input type="color" value={customization.skinColor} onChange={(e) => setCustomization({...customization, skinColor: e.target.value})} />
-          </div>
-          <div className="setting-item">
-            <label>Personality</label>
-            <select value={customization.personality} onChange={(e) => setCustomization({...customization, personality: e.target.value})}>
-              <option>Friendly</option>
-              <option>Professional</option>
-              <option>Teacher</option>
-            </select>
-          </div>
-          <div className="setting-item">
-            <label>Language</label>
-            <select value={customization.language} onChange={(e) => setCustomization({...customization, language: e.target.value})}>
-              <option>English</option>
-              <option>Hindi</option>
-              <option>Telugu</option>
-              <option>Tamil</option>
-            </select>
-          </div>
-        </div>
+        <Customizer customization={{...customization, onOpenStudio: () => setShowAvatarStudio(true)}} setCustomization={setCustomization} />
+      )}
+      
+      {showAvatarStudio && (
+        <AvatarCreator 
+          onClose={() => setShowAvatarStudio(false)} 
+          onAvatarGenerated={(url) => {
+            setCustomization({...customization, avatarUrl: url + '?t=' + new Date().getTime()});
+          }} 
+        />
       )}
     </div>
   );

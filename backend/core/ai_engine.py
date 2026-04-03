@@ -9,7 +9,7 @@ class AIEngine:
         self.url = ollama_url
         self.model = "mistral" # Default for PC
 
-    def generate(self, prompt: str, personality: str = "Friendly", language: str = "English", history: list = []):
+    def generate(self, prompt: str, personality: str = "Friendly", language: str = "English", history: list = [], temperature: float = 0.9):
         """
         Generates a response using Ollama local API.
         """
@@ -23,7 +23,7 @@ class AIEngine:
             "stream": False,
             "options": {
                 "num_ctx": 4096,
-                "temperature": 0.7
+                "temperature": temperature
             }
         }
 

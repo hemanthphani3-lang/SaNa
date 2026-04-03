@@ -12,6 +12,7 @@ from core.rag_handler import RAGHandler
 from core.personality_manager import PersonalityManager
 from core.hardware_detector import HardwareDetector
 from services.phoneme_extractor import PhonemeExtractor
+from routes import avatar
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -28,6 +29,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+app.include_router(avatar.router, prefix="/api")
+
 # Initialize Services
 hardware = HardwareDetector()
 capability = hardware.detect_capabilities()
@@ -40,8 +43,8 @@ if capability == "LOW":
 elif capability == "MINIMAL":
     ai_engine.switch_model("tinyllama")
 
-memory = MemoryManager()
-rag = RAGHandler()
+memory = MemoryManager(db_path="backend/data/memory.db")
+rag = RAGHandler(index_path="backend/data/faiss_index.bin")
 personality = PersonalityManager()
 phonemes = PhonemeExtractor()
 
@@ -49,6 +52,7 @@ class ChatRequest(BaseModel):
     message: str
     personality: str = "Friendly"
     language: str = "English"
+    temperature: float = 0.9
 
 class ChatResponse(BaseModel):
     response: str
@@ -74,7 +78,8 @@ async def chat(request: ChatRequest):
             full_prompt, 
             personality=request.personality, 
             language=request.language,
-            history=history
+            history=history,
+            temperature=request.temperature
         )
         
         # 5. Save to Memory
