@@ -47,7 +47,7 @@ const Sidebar = ({ currentView, setView, isOpen, onClose }) => {
           ))}
         </nav>
         <div className="sidebar-footer">
-          <p>SANKEYTHIKA v2.0</p>
+          <p>Groot AI v2.0</p>
         </div>
       </div>
       

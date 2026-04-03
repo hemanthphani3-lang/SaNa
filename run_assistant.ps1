@@ -1,4 +1,4 @@
-# SANKEYTHIKA AI Launcher - Robust Version
+# Groot AI Launcher - Robust Version
 # This script handles the startup of both backend and frontend securely.
 
 $ProjectRoot = "y:\hemanth projects 1\SANKEYTHIKA"
@@ -12,7 +12,7 @@ Function Log-Message($msg) {
     Write-Host $msg -ForegroundColor Cyan
 }
 
-Log-Message "🚀 Starting SANKEYTHIKA AI Systems..."
+Log-Message "🚀 Starting Groot AI Systems..."
 
 # 1. Kill any existing processes on ports 8000 (backend) and 5173 (frontend)
 Stop-Process -Id (Get-NetTCPConnection -LocalPort 8000 -ErrorAction SilentlyContinue).OwningProcess -ErrorAction SilentlyContinue
@@ -44,7 +44,7 @@ while ($retries -gt 0 -and -not $connected) {
 }
 
 if ($connected) {
-    Log-Message "✨ Link Established. Opening SANKEYTHIKA Interface..."
+    Log-Message "✨ Link Established. Opening Groot Interface..."
     $AppUrl = "http://localhost:5173"
     
     # Try Edge App Mode first

@@ -3,8 +3,9 @@ import json
 import logging
 import os
 import time
+from .internet_service import InternetService
 
-logger = logging.getLogger("SANKEYTHIKA.AIEngine")
+logger = logging.getLogger("Groot.AIEngine")
 
 class AIEngine:
     def __init__(self, ollama_url: str = None):
@@ -33,7 +34,7 @@ class AIEngine:
     def generate(self, prompt: str, personality: str = "Friendly", language: str = "English", history: list = [], temperature: float = None):
         """Legacy JSON return. Use generate_stream for fast text output."""
         target_model = self._route_request(prompt)
-        system_prompt = f"You are SANKEYTHIKA, an AI assistant. Always respond in the exact same language that the user uses."
+        system_prompt = f"You are Groot, an AI assistant. Always respond in the exact same language that the user uses."
         temp = temperature if temperature is not None else float(os.getenv("TEMPERATURE", 0.7))
 
         payload = {
@@ -54,14 +55,29 @@ class AIEngine:
         
         logger.info(f"🔥 ROUTING PROMPT TO: {target_model.upper()}")
 
+        # --- Hybrid Layer: Live Research --------------------------------------
+        live_info = ""
+        deep_search_triggers = ["news", "today", "current", "latest", "price", "stock", "weather", "who is", "what is happening", "score"]
+        
+        if any(t in prompt_lower for t in deep_search_triggers):
+            if InternetService.is_online():
+                logger.info("🌍 Triggering Hybrid Deep Research...")
+                live_info = InternetService.search_live_info(prompt)
+                if live_info:
+                    logger.info("✅ Live Data Retrieved. Injecting into Neural Context.")
+
         if target_model == self.fast_model:
-            system_prompt = f"You are SANKEYTHIKA, an AI assistant with a {personality} personality. " \
+            system_prompt = f"You are Groot, an AI assistant with a {personality} personality. " \
                             f"Always respond in the exact same language the user used. Keep the answer EXTREMELY brief. 1 or 2 sentences ONLY."
+            if live_info:
+                system_prompt += f" LIVE RESEARCH DATA: {live_info}"
             ctx = 1024
             predict = 100
         else:
-            system_prompt = f"You are SANKEYTHIKA, a highly intelligent expert AI. " \
+            system_prompt = f"You are Groot, a highly intelligent expert AI. " \
                             f"Respond deeply and accurately, strictly in the exact same language the user used."
+            if live_info:
+                system_prompt += f" RECENT REAL-TIME RESEARCH: {live_info}. Use this data to answer accurately."
             ctx = 4096
             predict = 512
 

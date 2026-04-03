@@ -7,7 +7,7 @@ const HistoryView = () => {
     useEffect(() => {
         const fetchHistory = async () => {
             try {
-                const response = await fetch('http://localhost:8000/chat/history'); // I'll need to check the actual endpoint or use memory manager via a new route
+                const response = await fetch('http://localhost:8000/api/chat/history'); // I'll need to check the actual endpoint or use memory manager via a new route
                 // Wait, I haven't added a specific /chat/history GET route. Let's use a mock or add it to main.py
                 setHistory([
                     { role: 'user', content: 'Hello Groot', timestamp: '2026-04-03 10:00' },

@@ -23,9 +23,9 @@ from routes import avatar
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger("SANKEYTHIKA")
+logger = logging.getLogger("Groot")
 
-app = FastAPI(title="SANKEYTHIKA AI Assistant API")
+app = FastAPI(title="Groot AI Assistant API")
 
 # Enable CORS for frontend
 app.add_middleware(
@@ -40,7 +40,7 @@ app.include_router(avatar.router, prefix="/api")
 
 @app.get("/")
 async def root():
-    return {"status": "SANKEYTHIKA Backend Online", "version": "1.0.0"}
+    return {"status": "Groot Backend Online", "version": "1.0.0"}
 
 # Initialize Services
 hardware = HardwareDetector()

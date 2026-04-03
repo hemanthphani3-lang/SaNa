@@ -1,9 +1,9 @@
 @echo off
-TITLE SANKEYTHIKA AI Assistant
+TITLE Groot AI Assistant
 color 0A
 echo.
 echo  ================================================================
-echo    SANKEYTHIKA AI ASSISTANT  --  Offline-First Desktop HUD
+echo    GROOT AI ASSISTANT  --  Offline-First Desktop HUD
 echo  ================================================================
 echo.
 

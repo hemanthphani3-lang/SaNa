@@ -7,14 +7,14 @@ sys.path.append(os.path.join(os.getcwd(), 'backend'))
 from backend.core.rag_handler import RAGHandler
 
 def main():
-    print("Initializing SANKEYTHIKA RAG Data...")
+    print("Initializing Groot AI RAG Data...")
     
     # Initialize RAG handler
     rag = RAGHandler(index_path="backend/data/faiss_index.bin")
     
     # Initial documents to prime the assistant
     initial_docs = [
-        "SANKEYTHIKA is an advanced AI assistant designed for multimodal interaction including voice, emotion, and 3D visualization.",
+        "Groot is an advanced AI assistant designed for multimodal interaction including voice, emotion, and 3D visualization.",
         "The assistant uses Ollama for local LLM inference, switching between Mistral, Phi, and TinyLlama based on hardware capabilities.",
         "RAG (Retrieval-Augmented Generation) is used to provide context-aware responses by indexing project documentation and user knowledge.",
         "Voice synthesis is powered by eSpeak-NG and phoneme extraction for realistic lip-synchronization.",

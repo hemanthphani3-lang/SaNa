@@ -1,7 +1,7 @@
 # SANKEYTHIKA Setup Script
 # Run this to prepare your environment
 
-Write-Host "--- SANKEYTHIKA (SaNa) Environment Setup ---" -ForegroundColor Cyan
+Write-Host "--- Groot (Neural Link) Environment Setup ---" -ForegroundColor Cyan
 
 # 1. Check Python
 if (!(Get-Command python -ErrorAction SilentlyContinue)) {

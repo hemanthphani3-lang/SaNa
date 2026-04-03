@@ -7,12 +7,13 @@ const POLL_INTERVAL_MS = 5000; // check backend every 5s when offline
 
 const ChatView = ({ setVisemeTimeline, customization, speak }) => {
   const [messages, setMessages] = useState([
-    { role: 'assistant', content: 'Hello! I am SANKEYTHIKA. How can I help you today?' }
+    { role: 'assistant', content: 'Hello! I am Groot. How can I help you today?' }
   ]);
   const [input, setInput] = useState('');
   const [isRecording, setIsRecording] = useState(false);
   const [backendOnline, setBackendOnline] = useState(null); // null=checking, true, false
   const [isTyping, setIsTyping] = useState(false);
+  const [isSearching, setIsSearching] = useState(false);
 
   const recognitionRef = useRef(null);
   const scrollContainerRef = useRef(null);
@@ -112,6 +113,13 @@ const ChatView = ({ setVisemeTimeline, customization, speak }) => {
 
   const processMessage = async (text) => {
     setMessages(prev => [...prev, { role: 'user', content: text }]);
+    
+    // UI Feedback: Detect if we're likely triggered a deep search
+    const deepSearchTriggers = ["news", "today", "current", "latest", "price", "stock", "weather", "who is", "what is happening", "score"];
+    if (deepSearchTriggers.some(t => text.toLowerCase().includes(t))) {
+      setIsSearching(true);
+    }
+    
     // Add empty assistant shell for streaming
     setMessages(prev => [...prev, { role: 'assistant', content: '' }]);
 
@@ -159,10 +167,13 @@ const ChatView = ({ setVisemeTimeline, customization, speak }) => {
           return newArr;
         });
       }
-
+      
+      setIsSearching(false);
       if (speak) speak(fullReply);
 
     } catch (error) {
+      console.error("Streaming error:", error);
+      setIsSearching(false);
       setMessages(prev => {
         const newArr = [...prev];
         newArr[newArr.length - 1] = {
@@ -268,7 +279,7 @@ const ChatView = ({ setVisemeTimeline, customization, speak }) => {
               paddingLeft: m.role === 'user' ? 0 : '4px',
               paddingRight: m.role === 'user' ? '4px' : 0,
             }}>
-              {m.role === 'user' ? 'You' : 'SANKEYTHIKA'}
+              {m.role === 'user' ? 'You' : 'Groot'}
             </span>
 
             <div style={{
@@ -299,8 +310,30 @@ const ChatView = ({ setVisemeTimeline, customization, speak }) => {
           </div>
         ))}
 
+        {isSearching && (
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            padding: '8px 16px',
+            background: 'rgba(0, 255, 255, 0.05)',
+            border: '1px solid rgba(0, 255, 255, 0.1)',
+            borderRadius: '20px',
+            width: 'fit-content',
+            marginBottom: '10px',
+            color: '#00ffff',
+            fontSize: '11px',
+            fontWeight: '600',
+            letterSpacing: '0.06em',
+            textTransform: 'uppercase'
+          }}>
+            <RefreshCw className="spin" size={12} />
+            Neural RESEARCHING LIVE DATA...
+          </div>
+        )}
+
         {/* Typing indicator */}
-        {isTyping && (
+        {isSearching === false && isTyping && (
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
             <span style={{ fontSize: '11px', fontWeight: 600, color: '#6ee7b7', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '4px', paddingLeft: '4px' }}>
               SANKEYTHIKA
