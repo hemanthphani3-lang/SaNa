@@ -3,9 +3,6 @@ import json
 import os
 import logging
 import base64
-from Crypto.Cipher import AES
-from Crypto.Util.Padding import pad, unpad
-from Crypto.Protocol.KDF import PBKDF2
 
 logger = logging.getLogger("SANKEYTHIKA.Memory")
 
@@ -13,7 +10,7 @@ class MemoryManager:
     def __init__(self, db_path: str = "backend/data/memory.db", secret_key: str = "sankeythika-fallback-key"):
         os.makedirs(os.path.dirname(db_path), exist_ok=True)
         self.db_path = db_path
-        self.key = self._get_or_create_key(secret_key)
+        # Key bypassed
         self.conn = sqlite3.connect(db_path, check_same_thread=False)
         self._setup_db()
 
@@ -31,22 +28,10 @@ class MemoryManager:
             return key
 
     def _encrypt(self, text):
-        if not text: return text
-        cipher = AES.new(self.key, AES.MODE_CBC)
-        ct_bytes = cipher.encrypt(pad(text.encode(), AES.block_size))
-        return base64.b64encode(cipher.iv + ct_bytes).decode('utf-8')
+        return text
 
     def _decrypt(self, data):
-        if not data: return data
-        try:
-            raw = base64.b64decode(data)
-            iv = raw[:16]
-            ct = raw[16:]
-            cipher = AES.new(self.key, AES.MODE_CBC, iv)
-            return unpad(cipher.decrypt(ct), AES.block_size).decode('utf-8')
-        except Exception as e:
-            logger.error(f"Decryption failed: {e}")
-            return "[Encrypted Data]"
+        return data
 
     def _setup_db(self):
         cursor = self.conn.cursor()

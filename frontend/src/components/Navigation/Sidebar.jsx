@@ -1,22 +1,17 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { 
   Home, 
-  MessageSquare, 
   User, 
   History, 
   Settings, 
-  Clock, 
-  Menu, 
+  Clock,
   X 
 } from 'lucide-react';
 import './Sidebar.css';
 
-const Sidebar = ({ currentView, setView }) => {
-  const [isOpen, setIsOpen] = useState(false);
-
+const Sidebar = ({ currentView, setView, isOpen, onClose }) => {
   const menuItems = [
-    { id: 'home', label: 'Home', icon: <Home size={24} /> },
-    { id: 'chat', label: 'Chat', icon: <MessageSquare size={24} /> },
+    { id: 'chat', label: 'Home', icon: <Home size={24} /> },
     { id: 'avatar', label: 'Avatar', icon: <User size={24} /> },
     { id: 'history', label: 'History', icon: <History size={24} /> },
     { id: 'schedule', label: 'Schedule', icon: <Clock size={24} /> },
@@ -25,17 +20,12 @@ const Sidebar = ({ currentView, setView }) => {
 
   return (
     <>
-      <button 
-        className="hamburger-btn" 
-        onClick={() => setIsOpen(!isOpen)}
-        aria-label="Toggle Menu"
-      >
-        {isOpen ? <X size={28} /> : <Menu size={28} />}
-      </button>
-
       <div className={`sidebar ${isOpen ? 'open' : ''}`}>
-        <div className="sidebar-header">
-          <h2>GROOT HUD</h2>
+        <div className="sidebar-header flex justify-between items-center">
+          <h2 className="flex-1">GROOT HUD</h2>
+          <button onClick={onClose} className="p-2 hover:bg-white/10 rounded-full lg:hidden">
+            <X size={20} />
+          </button>
         </div>
         <nav className="sidebar-nav">
           {menuItems.map((item) => (
@@ -44,7 +34,7 @@ const Sidebar = ({ currentView, setView }) => {
               className={`nav-item ${currentView === item.id ? 'active' : ''}`}
               onClick={() => {
                 setView(item.id);
-                setIsOpen(false);
+                onClose();
               }}
             >
               <span className="nav-icon">{item.icon}</span>
@@ -57,7 +47,7 @@ const Sidebar = ({ currentView, setView }) => {
         </div>
       </div>
       
-      {isOpen && <div className="sidebar-overlay" onClick={() => setIsOpen(false)} />}
+      {isOpen && <div className="sidebar-overlay" onClick={onClose} />}
     </>
   );
 };

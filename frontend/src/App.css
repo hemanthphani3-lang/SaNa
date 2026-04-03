@@ -44,14 +44,11 @@ body::before {
 }
 
 .app-main {
-  display: flex;
-  flex-direction: column;
+  position: relative;
   height: 100vh;
   width: 100vw;
-  padding: 10px 16px 16px;
-  gap: 10px;
-  box-sizing: border-box;
   overflow: hidden;
+  background-color: var(--background);
 }
 
 header {
@@ -330,8 +327,88 @@ header {
   width: 100vw;
   height: 100vh;
   overflow: hidden;
+  display: flex;
+  flex-direction: row;
 }
 
+.avatar-side {
+  flex: 0 0 50%;
+  width: 50%;
+  height: 100%;
+  position: relative;
+  border-right: 1px solid rgba(255, 255, 255, 0.05);
+  background: rgba(0, 0, 0, 0.2);
+}
+
+.content-side {
+  flex: 0 0 50%;
+  width: 50%;
+  height: 100%;
+  position: relative;
+  overflow: hidden;
+  background: linear-gradient(135deg, #0a0f19, #0d1424);
+}
+
+.absolute.bottom-4.left-4 {
+  position: absolute;
+  bottom: 16px;
+  left: 16px;
+}
+
+.hamburger-btn {
+  position: fixed;
+  top: 1.5rem;
+  right: 1.5rem;
+  z-index: 50;
+  padding: 0.75rem;
+  border-radius: 9999px;
+  background: rgba(20, 25, 35, 0.6);
+  backdrop-filter: blur(25px);
+  -webkit-backdrop-filter: blur(25px);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  cursor: pointer;
+  color: white;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  transition: background-color 0.3s ease;
+}
+
+.hamburger-btn:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.avatar-badge {
+  position: absolute;
+  bottom: 1rem;
+  left: 1rem;
+  padding: 1rem;
+  border-radius: 1rem;
+  background: rgba(20, 25, 35, 0.6);
+  backdrop-filter: blur(25px);
+  -webkit-backdrop-filter: blur(25px);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  box-shadow: 0 4px 16px rgba(0,0,0,0.3);
+}
+
+.avatar-badge-title {
+  font-size: 1.25rem;
+  font-weight: 700;
+  margin: 0;
+  background: linear-gradient(to right, #00d2ff, #3b82f6);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.avatar-badge-subtitle {
+  font-size: 0.75rem;
+  opacity: 0.5;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  margin: 0;
+  margin-top: 4px;
+}
 /* Scrollbar refinement for views */
 .view-container::-webkit-scrollbar {
   width: 6px;

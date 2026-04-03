@@ -2,16 +2,19 @@ import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import Avatar from './components/Avatar/Avatar';
 import Customizer from './components/Customization/Customizer';
-import AvatarCreator from './components/Avatar/AvatarCreator';
 import Sidebar from './components/Navigation/Sidebar';
+import AvatarCreator from './components/Avatar/AvatarCreator';
+
+import ChatView from './views/ChatView';
 import ScheduleView from './views/ScheduleView';
 import HistoryView from './views/HistoryView';
 import useLipSync from './hooks/useLipSync';
-import { Mic, Send, Settings, User, Volume2, Gamepad2 } from 'lucide-react';
+import { Menu, X } from 'lucide-react';
 import './App.css';
 
 const App = () => {
   const [currentView, setCurrentView] = useState('chat');
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [messages, setMessages] = useState([
     { role: 'assistant', content: 'I am Groot!' }
   ]);
@@ -29,8 +32,6 @@ const App = () => {
   });
 
   const [isRecording, setIsRecording] = useState(false);
-  const [showSettings, setShowSettings] = useState(false);
-  const [showAvatarStudio, setShowAvatarStudio] = useState(false);
   const recognitionRef = useRef(null);
   const scrollContainerRef = useRef(null);
 
@@ -48,6 +49,8 @@ const App = () => {
       recognitionRef.current.onend = () => setIsRecording(false);
     }
   }, []);
+
+  const toggleSidebar = () => setIsSidebarOpen(!isSidebarOpen);
 
   const toggleListening = () => {
     if (isRecording) {
@@ -108,75 +111,19 @@ const App = () => {
   };
 
   const processMessage = async (text) => {
-    const userMessage = { role: 'user', content: text };
-    setMessages(prev => [...prev, userMessage]);
-
-    try {
-      const response = await axios.post('http://localhost:8000/chat', {
-        message: text,
-        personality: customization.personality,
-        language: customization.language,
-        temperature: customization.temperature
-      });
-
-      const assistantMessage = { role: 'assistant', content: response.data.response };
-      setMessages(prev => [...prev, assistantMessage]);
-      speak(response.data.response, response.data.viseme_timeline);
-
-    } catch (error) {
-      console.error("Error sending message:", error);
-    }
+    // Moved to ChatView, but kept here if we want App to maintain global state.
+    // However, since ChatView handles messages internally now, we don't need processMessage here.
   };
 
-  const renderContent = () => {
+  const renderRightPanel = () => {
     switch (currentView) {
-      case 'home':
-        return (
-          <div className="home-view flex flex-col items-center justify-center h-full text-center p-10 animate-fade-in">
-            <h1 className="text-6xl font-bold mb-4 bg-gradient-to-r from-blue-400 to-cyan-300 bg-clip-text text-transparent">WELCOME BACK</h1>
-            <p className="text-xl opacity-60 max-w-xl">I am Groot. Your offline neural assistant is ready to help you with tasks, reminders, and system automation.</p>
-            <div className="mt-10 grid grid-cols-2 gap-4">
-               <button onClick={() => setCurrentView('chat')} className="glass p-6 rounded-2xl hover:bg-white/10 transition-all flex flex-col items-center gap-4">
-                 <Send size={32} className="text-cyan-400" />
-                 <span>Start Chatting</span>
-               </button>
-               <button onClick={() => setCurrentView('schedule')} className="glass p-6 rounded-2xl hover:bg-white/10 transition-all flex flex-col items-center gap-4">
-                 <Clock size={32} className="text-purple-400" />
-                 <span>View Schedule</span>
-               </button>
-            </div>
-          </div>
-        );
       case 'chat':
         return (
-          <div className="chat-interface-wrapper flex flex-col h-full animate-fade-in">
-            <div className="avatar-section flex-1">
-              <Avatar viseme={currentViseme} customization={customization} />
-            </div>
-            <div className="chat-section glass m-4 mb-20">
-              <div className="messages" ref={scrollContainerRef}>
-                {messages.map((m, i) => (
-                  <div key={i} className={`msg ${m.role}`}>
-                    <div className="msg-content">{m.content}</div>
-                  </div>
-                ))}
-              </div>
-              <div className="input-area">
-                <button className={`icon-btn ${isRecording ? 'recording' : ''}`} onClick={toggleListening}>
-                  <Mic size={20} />
-                </button>
-                <input 
-                  value={input} 
-                  onChange={(e) => setInput(e.target.value)} 
-                  onKeyPress={(e) => e.key === 'Enter' && handleSend()}
-                  placeholder="Type your message..."
-                />
-                <button onClick={handleSend} className="send-btn">
-                  <Send size={20} />
-                </button>
-              </div>
-            </div>
-          </div>
+          <ChatView 
+            setVisemeTimeline={setVisemeTimeline} 
+            customization={customization} 
+            speak={speak} 
+          />
         );
       case 'schedule':
         return <ScheduleView />;
@@ -186,7 +133,7 @@ const App = () => {
         return (
           <div className="avatar-studio-view h-full flex items-center justify-center animate-fade-in">
              <AvatarCreator 
-                onClose={() => setCurrentView('home')} 
+                onClose={() => setCurrentView('chat')} 
                 onAvatarGenerated={(url) => {
                   setCustomization({...customization, avatarUrl: url + '?t=' + new Date().getTime()});
                   setCurrentView('chat');
@@ -196,36 +143,63 @@ const App = () => {
         );
       case 'settings':
         return (
-          <div className="settings-view h-full flex items-center justify-center animate-fade-in">
-            <Customizer 
-              customization={{...customization, onOpenStudio: () => setCurrentView('avatar')}} 
-              setCustomization={setCustomization} 
-            />
+          <div className="settings-view h-full flex flex-col p-8 animate-fade-in custom-scrollbar overflow-y-auto">
+             <h2 className="text-3xl font-bold mb-6">Neural Link Customization</h2>
+             <Customizer 
+               customization={customization} 
+               setCustomization={setCustomization} 
+             />
           </div>
         );
       default:
-        return <div>View not found</div>;
+        return (
+          <ChatView 
+            setVisemeTimeline={setVisemeTimeline} 
+            customization={customization} 
+            speak={speak} 
+          />
+        );
     }
   };
 
   return (
-    <div className="app-main">
+    <div className={`app-main ${isSidebarOpen ? 'drawer-open' : ''}`}>
       <div className="scanline"></div>
-      <Sidebar currentView={currentView} setView={setCurrentView} />
       
-      <main className="content-root h-screen w-screen overflow-hidden">
-        {renderContent()}
-      </main>
+      {/* Hamburger Menu Trigger */}
+      <button 
+        className="hamburger-btn"
+        onClick={toggleSidebar}
+      >
+        {isSidebarOpen ? <X size={24} /> : <Menu size={24} />}
+      </button>
 
-      {/* Legacy overlays for modal-style sub-screens if needed */}
-      {showAvatarStudio && (
-        <AvatarCreator 
-          onClose={() => setShowAvatarStudio(false)} 
-          onAvatarGenerated={(url) => {
-            setCustomization({...customization, avatarUrl: url + '?t=' + new Date().getTime()});
-          }} 
-        />
-      )}
+      {/* Sidebar as an overlay drawer */}
+      <Sidebar 
+        currentView={currentView} 
+        setView={(view) => {
+          setCurrentView(view);
+          setIsSidebarOpen(false);
+        }} 
+        isOpen={isSidebarOpen}
+        onClose={() => setIsSidebarOpen(false)}
+      />
+      
+      <main className="content-root h-screen w-screen overflow-hidden flex flex-row">
+        {/* Persistent Avatar Panel (Left Side, 50% width) */}
+        <div className="avatar-side w-1/2 h-full relative border-r border-white/5 bg-black/20">
+            <Avatar viseme={currentViseme} customization={customization} />
+            <div className="avatar-badge">
+              <h2 className="avatar-badge-title">Groot</h2>
+              <p className="avatar-badge-subtitle">{customization.personality} Protocol</p>
+            </div>
+        </div>
+
+        {/* Dynamic Content Panel (Right Side, 50% width) */}
+        <div className="content-side w-1/2 h-full relative overflow-hidden bg-gradient-to-br from-[#0a0f19] to-[#0d1424]">
+           {renderRightPanel()}
+        </div>
+      </main>
     </div>
   );
 };

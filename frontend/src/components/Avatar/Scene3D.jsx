@@ -57,34 +57,23 @@ function applyRestPose(vrm) {
   const humanoid = vrm.humanoid;
   if (!humanoid) return;
 
-  const getBone = (name) => {
-    // Try standard VRM v1 enum (camelCase)
-    let node = humanoid.getBoneNode?.(name);
-    // Try capitalized (VRM0 style)
-    if (!node) {
-      const capName = name.charAt(0).toUpperCase() + name.slice(1);
-      node = humanoid.getBoneNode?.(capName) || humanoid.getBoneNode?.(name.toLowerCase());
-    }
-    // Try raw bone as fallback
-    if (!node) node = humanoid.getRawBoneNode?.(name);
-    return node;
-  };
-
   const setRot = (name, x, y, z) => {
-    const node = getBone(name);
+    // Attempt normalized bone name first (v1), then fall back to node search
+    const node = humanoid.getNormalizedBoneNode?.(name) || humanoid.getBoneNode?.(name);
     if (!node) return;
     node.rotation.set(x, y, z);
     node.rotation.order = 'XYZ';
   };
 
-  // Natural Standing (A-Pose): Inverting signs to ensure they point down
-  setRot('leftUpperArm',   0, 0, -1.4);
+  // Natural Standing (A-Pose): Ensure arms are down and relaxed
+  // Using radians: -1.35 is ~77 degrees down
+  setRot('leftUpperArm',   0, 0, -1.35);
   setRot('leftLowerArm',   0, 0, -0.1);
-  setRot('leftHand',       0, 0,  0);
+  setRot('leftHand',       0, 0, -0.1);
 
-  setRot('rightUpperArm',  0, 0,  1.4);
+  setRot('rightUpperArm',  0, 0,  1.35);
   setRot('rightLowerArm',  0, 0,  0.1);
-  setRot('rightHand',      0, 0,  0);
+  setRot('rightHand',      0, 0,  0.1);
 }
 
 // ─── VRM Model Component ──────────────────────────────────────────────────────
