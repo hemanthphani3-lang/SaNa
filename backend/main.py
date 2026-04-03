@@ -1,4 +1,5 @@
 from fastapi import FastAPI, HTTPException, Request
+from fastapi.responses import StreamingResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import List, Optional
@@ -36,6 +37,10 @@ app.add_middleware(
 )
 
 app.include_router(avatar.router, prefix="/api")
+
+@app.get("/")
+async def root():
+    return {"status": "SANKEYTHIKA Backend Online", "version": "1.0.0"}
 
 # Initialize Services
 hardware = HardwareDetector()
@@ -93,6 +98,36 @@ async def chat(request: ChatRequest):
         logger.error(f"Chat error: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
+@app.post("/chat_stream")
+async def chat_stream(request: ChatRequest):
+    try:
+        context = rag.retrieve(request.message)
+        context_str = "\n".join(context)
+        history = memory.get_history()
+        
+        full_prompt = f"Context: {context_str}\nUser: {request.message}"
+
+        def event_stream():
+            full_text = ""
+            for token in ai_engine.generate_stream(
+                full_prompt, 
+                personality=request.personality, 
+                language=request.language,
+                history=history,
+                temperature=request.temperature
+            ):
+                full_text += token
+                yield token
+            
+            # Save memory after completion
+            memory.add_message("user", request.message)
+            memory.add_message("assistant", full_text)
+
+        return StreamingResponse(event_stream(), media_type="text/plain")
+    except Exception as e:
+        logger.error(f"Chat stream error: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
 # --- New Scheduler Routes ---
 
 class ReminderRequest(BaseModel):
@@ -134,35 +169,12 @@ async def execute_system_command(cmd: SystemCommand):
 @app.get("/api/system/health")
 async def system_health():
     """Comprehensive check of all offline services."""
-    health_status = {
+    return {
         "api": "online",
-        "ollama": "offline",
-        "rag": "offline",
-        "gpu_acceleration": "disabled",
-        "scheduler": "active" if scheduler.running else "inactive"
+        "ollama": "connected" if os.system("curl -s http://localhost:11434/api/tags > nul") == 0 else "offline",
+        "gpu": hardware.detect_capabilities(),
+        "scheduler": "active" if hasattr(scheduler, 'running') and scheduler.running else "inactive"
     }
-    
-    # Check Ollama
-    try:
-        import requests
-        resp = requests.get("http://localhost:11434/api/tags", timeout=2)
-        if resp.status_code == 200:
-            health_status["ollama"] = "connected"
-    except:
-        pass
-
-    # Check RAG
-    try:
-        if rag.collection.count() >= 0:
-            health_status["rag"] = "initialized"
-    except:
-        pass
-
-    # Check GPU
-    if hardware.detect_capabilities() == "HIGH":
-        health_status["gpu_acceleration"] = "enabled"
-
-    return health_status
 
 @app.get("/api/chat/history")
 async def get_chat_history(limit: int = 20):

@@ -90,42 +90,66 @@ const ChatView = ({ setVisemeTimeline, customization, speak }) => {
 
   const processMessage = async (text) => {
     setMessages(prev => [...prev, { role: 'user', content: text }]);
-    setIsTyping(true);
+    // Add empty assistant shell for streaming
+    setMessages(prev => [...prev, { role: 'assistant', content: '' }]);
 
     // Check backend first
     const alive = await checkBackend(true);
 
     if (!alive) {
-      setIsTyping(false);
-      setMessages(prev => [...prev, {
-        role: 'assistant',
-        content: '⚡ Backend is offline. Make sure the app was launched via Groot.bat or app_launcher.py. I\'ll reconnect automatically when it\'s back.',
-        isOfflineNote: true,
-      }]);
+      setMessages(prev => {
+        const newArr = [...prev];
+        newArr[newArr.length - 1] = {
+           role: 'assistant',
+           content: '⚡ Backend is offline. Launch the app via Groot.bat.',
+           isOfflineNote: true
+        };
+        return newArr;
+      });
       return;
     }
 
     try {
-      const response = await axios.post(`${BACKEND}/chat`, {
-        message: text,
-        personality: customization?.personality || 'Friendly',
-        language: customization?.language || 'English',
-        temperature: customization?.temperature || 0.7,
-      }, { timeout: 60000 });
+      const response = await fetch(`${BACKEND}/chat_stream`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          message: text,
+          personality: customization?.personality || 'Friendly',
+          language: customization?.language || 'English',
+          temperature: customization?.temperature || 0.7,
+        })
+      });
 
-      const reply = response.data.response;
-      setIsTyping(false);
-      setMessages(prev => [...prev, { role: 'assistant', content: reply }]);
-      if (speak) speak(reply, response.data.viseme_timeline);
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder("utf-8");
+      let fullReply = "";
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        const chunk = decoder.decode(value, { stream: true });
+        fullReply += chunk;
+        
+        setMessages(prev => {
+          const newArr = [...prev];
+          newArr[newArr.length - 1].content = fullReply;
+          return newArr;
+        });
+      }
+
+      if (speak) speak(fullReply);
 
     } catch (error) {
-      setIsTyping(false);
-      const detail = error.response?.data?.detail || error.message || 'Unknown error';
-      setMessages(prev => [...prev, {
-        role: 'assistant',
-        content: `⚠️ ${detail}`,
-        isError: true,
-      }]);
+      setMessages(prev => {
+        const newArr = [...prev];
+        newArr[newArr.length - 1] = {
+          role: 'assistant',
+          content: `⚠️ Network error`,
+          isError: true,
+        };
+        return newArr;
+      });
     }
   };
 
@@ -191,26 +215,7 @@ const ChatView = ({ setVisemeTimeline, customization, speak }) => {
         )}
       </div>
 
-      {/* ── Offline banner (when backend is down) ── */}
-      {backendOnline === false && (
-        <div style={{
-          padding: '10px 20px',
-          background: 'rgba(248,113,113,0.08)',
-          borderBottom: '1px solid rgba(248,113,113,0.15)',
-          fontSize: '12px',
-          color: '#fca5a5',
-          display: 'flex',
-          alignItems: 'center',
-          gap: '8px',
-          flexShrink: 0,
-        }}>
-          <WifiOff size={13} style={{ flexShrink: 0 }} />
-          <span>
-            Backend offline. Launch the app via <strong>Groot.bat</strong> to start Ollama + backend automatically.
-            Reconnecting every 5 seconds…
-          </span>
-        </div>
-      )}
+      {/* Offline banner removed per user request */}
 
       {/* ── Message Feed ── */}
       <div

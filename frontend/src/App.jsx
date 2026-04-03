@@ -62,22 +62,57 @@ const App = () => {
     }
   };
 
-  const speak = (text, timeline = []) => {
+  const speak = (text) => {
     if (!window.speechSynthesis) return;
     window.speechSynthesis.cancel();
     const utterance = new SpeechSynthesisUtterance(text);
     utterance.pitch = customization.voicePitch || 1;
     utterance.rate = customization.voiceRate || 1;
+
+    utterance.onstart = () => {
+      setVisemeTimeline([{ viseme: 'A', time: 0 }]);
+    };
     
-    if (timeline && timeline.length > 0) {
-      setVisemeTimeline(timeline);
-    } else {
-      setVisemeTimeline([
-        { viseme: 'A', time: 0.1 },
-        { viseme: 'E', time: 0.3 },
-        { viseme: 'Neutral', time: 0.5 }
-      ]);
-    }
+    // Dynamic phonetics exactly synced with the browser's audio word-boundaries
+    utterance.onboundary = (event) => {
+        if (event.name !== 'word') return;
+        const word = text.slice(event.charIndex, event.charIndex + event.charLength).toLowerCase();
+        
+        const miniTimeline = [];
+        let timeOffset = 0;
+        const timePerViseme = 0.08; // 80ms per phonetic sound
+        
+        // Strip out roughly silent/complex clusters for cleaner phonetic mapping
+        const phoneticStr = word.replace(/e$/, '').replace(/ght/g, 't').replace(/sh/g, 's').replace(/th/g, 't').replace(/ll/g, 'l');
+        
+        for (let i = 0; i < phoneticStr.length; i++) {
+            const char = phoneticStr[i];
+            let v = null;
+            
+            // Map character to physical Phonetic Viseme
+            if ('bmp'.includes(char)) v = 'Neutral'; // Closed lips for bilabials
+            else if ('ouqw'.includes(char)) v = 'O'; // Rounded lips
+            else if ('eiy'.includes(char)) v = 'E';  // Slight open
+            else if ('ah'.includes(char)) v = 'A';   // Wide open
+            
+            if (v) {
+                if (miniTimeline.length === 0 || miniTimeline[miniTimeline.length - 1].viseme !== v) {
+                     miniTimeline.push({ viseme: v, time: timeOffset });
+                }
+                timeOffset += timePerViseme;
+            }
+        }
+        
+        // Fallback if no specific vowels/bilabials were caught
+        if (miniTimeline.length === 0) {
+             miniTimeline.push({ viseme: 'E', time: 0 });
+             timeOffset = 0.1;
+        }
+
+        // Snap mouth closed at the exact end of the phonetic word trajectory
+        miniTimeline.push({ viseme: 'Neutral', time: timeOffset + 0.05 });
+        setVisemeTimeline(miniTimeline);
+    };
 
     utterance.onend = () => {
       setVisemeTimeline([{ viseme: 'Neutral', time: 0 }]);
