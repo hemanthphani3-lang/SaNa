@@ -130,6 +130,11 @@ async def chat_stream(request: ChatRequest):
 
 # --- New Scheduler Routes ---
 
+@app.get("/api/notifications")
+async def get_notifications():
+    alerts = scheduler.pop_alerts()
+    return {"alerts": alerts}
+
 class ReminderRequest(BaseModel):
     title: str
     message: str

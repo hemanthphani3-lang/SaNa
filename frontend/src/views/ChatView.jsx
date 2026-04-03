@@ -44,6 +44,13 @@ const ChatView = ({ setVisemeTimeline, customization, speak }) => {
     return () => clearInterval(pollTimerRef.current);
   }, [backendOnline, checkBackend]);
 
+  const langMapping = {
+    'English': 'en-US',
+    'Hindi': 'hi-IN',
+    'Telugu': 'te-IN',
+    'Tamil': 'ta-IN'
+  };
+
   // ── Speech recognition ────────────────────────────────────────────────────
   useEffect(() => {
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -51,22 +58,37 @@ const ChatView = ({ setVisemeTimeline, customization, speak }) => {
       recognitionRef.current = new SpeechRecognition();
       recognitionRef.current.continuous = false;
       recognitionRef.current.interimResults = false;
+      
       recognitionRef.current.onresult = (event) => {
         const transcript = event.results[0][0].transcript;
         setInput(transcript);
         processMessage(transcript);
       };
       recognitionRef.current.onend = () => setIsRecording(false);
+      recognitionRef.current.onerror = (event) => {
+        console.error("Speech Rec Error:", event.error);
+        setIsRecording(false);
+      };
     }
   }, []);
 
   const toggleListening = () => {
+    if (!recognitionRef.current) return;
+
     if (isRecording) {
-      recognitionRef.current?.stop();
+      recognitionRef.current.stop();
       setIsRecording(false);
     } else {
-      recognitionRef.current?.start();
-      setIsRecording(true);
+      // Apply the currently selected language right before starting
+      const selectedLang = customization?.language || 'English';
+      recognitionRef.current.lang = langMapping[selectedLang] || 'en-US';
+      
+      try {
+        recognitionRef.current.start();
+        setIsRecording(true);
+      } catch (err) {
+        console.error("Failed to start speech recognition:", err);
+      }
     }
   };
 

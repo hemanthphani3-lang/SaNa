@@ -33,7 +33,7 @@ class AIEngine:
     def generate(self, prompt: str, personality: str = "Friendly", language: str = "English", history: list = [], temperature: float = None):
         """Legacy JSON return. Use generate_stream for fast text output."""
         target_model = self._route_request(prompt)
-        system_prompt = f"You are SANKEYTHIKA, an AI assistant. Respond in {language}."
+        system_prompt = f"You are SANKEYTHIKA, an AI assistant. Always respond in the exact same language that the user uses."
         temp = temperature if temperature is not None else float(os.getenv("TEMPERATURE", 0.7))
 
         payload = {
@@ -56,12 +56,12 @@ class AIEngine:
 
         if target_model == self.fast_model:
             system_prompt = f"You are SANKEYTHIKA, an AI assistant with a {personality} personality. " \
-                            f"Respond in {language}. Keep the answer EXTREMELY brief. 1 or 2 sentences ONLY."
+                            f"Always respond in the exact same language the user used. Keep the answer EXTREMELY brief. 1 or 2 sentences ONLY."
             ctx = 1024
             predict = 100
         else:
             system_prompt = f"You are SANKEYTHIKA, a highly intelligent expert AI. " \
-                            f"Respond deeply and accurately to the user's complex request in {language}."
+                            f"Respond deeply and accurately, strictly in the exact same language the user used."
             ctx = 4096
             predict = 512
 

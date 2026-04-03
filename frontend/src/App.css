@@ -229,12 +229,11 @@ header {
 }
 
 .settings-panel {
-  position: fixed;
-  bottom: 100px;
-  right: 30px;
-  width: 280px;
-  padding: 25px;
-  z-index: 100;
+  width: 100%;
+  max-width: 450px;
+  margin: 0 auto;
+  padding: 30px;
+  z-index: 10;
   animation: slideUp 0.4s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
@@ -293,12 +292,37 @@ header {
 
 /* Global View Container */
 .view-container {
-  padding: 80px 40px 40px 100px;
+  padding: 60px 40px 40px 40px; /* Symmetrical padding, no massive left gaps */
   height: 100vh;
   overflow-y: auto;
   color: white;
   animation: slideUp 0.5s ease-out;
   box-sizing: border-box;
+}
+
+/* Glass Form Elements */
+.glass-input {
+  width: 100%;
+  padding: 14px 18px;
+  background: rgba(20, 25, 35, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: #fff;
+  border-radius: 12px;
+  backdrop-filter: blur(15px);
+  -webkit-backdrop-filter: blur(15px);
+  outline: none;
+  font-family: 'Outfit', 'Inter', sans-serif;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.glass-input:focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 20px rgba(0, 242, 255, 0.15);
+  background: rgba(0, 0, 0, 0.6);
+}
+
+.glass-input::placeholder {
+  color: rgba(255, 255, 255, 0.4);
 }
 
 .view-header {
@@ -357,25 +381,30 @@ header {
 
 .hamburger-btn {
   position: fixed;
-  top: 1.5rem;
-  right: 1.5rem;
+  top: 2rem;
+  right: 2rem;
   z-index: 50;
-  padding: 0.75rem;
-  border-radius: 9999px;
-  background: rgba(20, 25, 35, 0.6);
-  backdrop-filter: blur(25px);
-  -webkit-backdrop-filter: blur(25px);
-  border: 1px solid rgba(255, 255, 255, 0.05);
+  padding: 10px;
+  border-radius: 12px;
+  background: rgba(0, 0, 0, 0.3);
+  backdrop-filter: blur(15px);
+  -webkit-backdrop-filter: blur(15px);
+  border: 1px solid var(--glass-border);
+  box-shadow: 0 4px 15px rgba(0, 242, 255, 0.05);
   cursor: pointer;
-  color: white;
+  color: var(--primary);
   display: flex;
   justify-content: center;
   align-items: center;
-  transition: background-color 0.3s ease;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .hamburger-btn:hover {
-  background: rgba(255, 255, 255, 0.2);
+  background: rgba(0, 242, 255, 0.1);
+  border-color: var(--primary);
+  transform: scale(1.08);
+  box-shadow: 0 4px 25px rgba(0, 242, 255, 0.25);
+  color: #fff;
 }
 
 .avatar-badge {
@@ -410,15 +439,38 @@ header {
   margin-top: 4px;
 }
 /* Scrollbar refinement for views */
-.view-container::-webkit-scrollbar {
-  width: 6px;
+.view-container::-webkit-scrollbar,
+.custom-scrollbar::-webkit-scrollbar {
+  width: 8px;
 }
 
-.view-container::-webkit-scrollbar-track {
+.view-container::-webkit-scrollbar-track,
+.custom-scrollbar::-webkit-scrollbar-track {
   background: transparent;
 }
 
-.view-container::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.1);
+.view-container::-webkit-scrollbar-thumb,
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
   border-radius: 10px;
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 242, 255, 0.6);
+}
+
+.custom-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
+  overflow-y: auto !important;
+  height: 100% !important;
+}
+
+.view-container {
+  padding: 80px 40px; /* Symmetrical padding with extra top room for headers */
+  overflow-y: auto !important;
+  height: 100% !important;
+  box-sizing: border-box;
 }

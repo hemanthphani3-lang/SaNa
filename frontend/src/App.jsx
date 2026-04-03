@@ -66,6 +66,15 @@ const App = () => {
     if (!window.speechSynthesis) return;
     window.speechSynthesis.cancel();
     const utterance = new SpeechSynthesisUtterance(text);
+    
+    if (customization.voiceUri) {
+      const voices = window.speechSynthesis.getVoices();
+      const selectedVoice = voices.find(v => v.voiceURI === customization.voiceUri);
+      if (selectedVoice) {
+         utterance.voice = selectedVoice;
+      }
+    }
+
     utterance.pitch = customization.voicePitch || 1;
     utterance.rate = customization.voiceRate || 1;
 
@@ -134,6 +143,25 @@ const App = () => {
     scrollToBottom();
   }, [messages, currentView]);
 
+  useEffect(() => {
+    // Background listener for Scheduled Tasks triggered from the Python Backend
+    const notifyTimer = setInterval(async () => {
+      try {
+        const res = await fetch("http://localhost:8000/api/notifications");
+        if (res.ok) {
+           const data = await res.json();
+           if (data.alerts && data.alerts.length > 0) {
+               data.alerts.forEach(alert => {
+                   speak(`Scheduled task triggered. Title: ${alert.title}. Due at: ${new Date(alert.time).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}.`);
+               });
+           }
+        }
+      } catch (err) {}
+    }, 4000);
+    
+    return () => clearInterval(notifyTimer);
+  }, [customization]);
+
   const handleSend = async () => {
     if (!input.trim()) return;
     const currentInput = input;
@@ -178,8 +206,15 @@ const App = () => {
         );
       case 'settings':
         return (
-          <div className="settings-view h-full flex flex-col p-8 animate-fade-in custom-scrollbar overflow-y-auto">
-             <h2 className="text-3xl font-bold mb-6">Neural Link Customization</h2>
+          <div className="view-container settings-view custom-scrollbar" style={{ paddingTop: '100px', paddingBottom: '120px' }}>
+             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '40px', maxWidth: '450px', margin: '0 auto' }}>
+               <h2 className="text-3xl font-bold" style={{ fontSize: '1.8rem', background: 'linear-gradient(90deg, #fff, #00ffff)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>Neural Link Customization</h2>
+               <button 
+                 onClick={() => setCurrentView('chat')} 
+                 style={{ padding: '8px 16px', background: 'rgba(255,255,255,0.05)', color: '#00ffff', border: '1px solid rgba(0,255,255,0.3)', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.8rem' }}>
+                 X Close
+               </button>
+             </div>
              <Customizer 
                customization={customization} 
                setCustomization={setCustomization} 

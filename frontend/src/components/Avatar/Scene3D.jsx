@@ -77,7 +77,7 @@ function applyRestPose(vrm) {
 }
 
 // ─── VRM Model Component ──────────────────────────────────────────────────────
-const VRMModel = ({ url, viseme }) => {
+const VRMModel = ({ url, viseme, customization }) => {
   const vrmRef = useRef(null);
   const { scene } = useThree();
   const [status, setStatus] = useState('loading'); // 'loading' | 'ready' | 'error'
@@ -130,6 +130,36 @@ const VRMModel = ({ url, viseme }) => {
       }
     };
   }, [url]);   // ← only re-run when url changes (not scene — scene ref is stable)
+
+  // ─── Dynamic Material Tinting ──────────────────────────────────────────────
+  useEffect(() => {
+    if (!vrmRef.current || !customization) return;
+    
+    vrmRef.current.scene.traverse((node) => {
+      if (node.isMesh && node.material) {
+        const materials = Array.isArray(node.material) ? node.material : [node.material];
+        
+        materials.forEach(mat => {
+           // We check both material and node names for maximum VRM compatibility
+           const query = (mat.name + " " + node.name).toLowerCase();
+           
+           const isClothing = query.includes('cloth') || query.includes('top') || query.includes('bottom') || query.includes('shirt') || query.includes('shoe') || query.includes('outfit') || query.includes('wear') || query.includes('dress') || query.includes('jacket') || query.includes('pant');
+           const isHair = query.includes('hair');
+           const isSkin = query.includes('skin') || query.includes('face') || query.includes('body');
+
+           if (customization.clothesColor && isClothing) {
+              mat.color.set(customization.clothesColor);
+           }
+           else if (customization.hairColor && isHair) {
+              mat.color.set(customization.hairColor);
+           }
+           else if (customization.skinColor && isSkin) {
+              mat.color.set(customization.skinColor);
+           }
+        });
+      }
+    });
+  }, [customization?.skinColor, customization?.hairColor, customization?.clothesColor, status]);
 
   // ─── Per-frame animation ───────────────────────────────────────────────────
   useFrame((state, delta) => {
@@ -193,7 +223,7 @@ const Scene3D = ({ viseme, customization }) => {
       <pointLight position={[0, 1, 2]} intensity={0.5} color={customization?.skinColor || '#ffddcc'} />
 
       <ErrorBoundary>
-        <VRMModel url={avatarUrl} viseme={viseme} />
+        <VRMModel url={avatarUrl} viseme={viseme} customization={customization} />
       </ErrorBoundary>
 
       <ContactShadows position={[0, -1.5, 0]} opacity={0.3} scale={8} blur={2} far={3} />

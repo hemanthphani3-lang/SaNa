@@ -15,6 +15,7 @@ class SchedulerService:
     def __init__(self, storage_path="backend/data/schedules.json"):
         self.storage_path = storage_path
         self.schedules = []
+        self.pending_alerts = []
         self.load_schedules()
         self.stop_run_continue = threading.Event()
         self.thread = threading.Thread(target=self._run_scheduler)
@@ -92,13 +93,19 @@ class SchedulerService:
         item["status"] = "completed"
         self.save_schedules()
 
-        # 3. Tell Groot to speak (we attempt a local broadcast or wait for frontend to poll)
-        # For now, we'll log it. In a full implementation, this would trigger a websocket event.
-        # We can also use espeak-ng locally if available for TRUE offline background speech.
+        # 3. Store in queue for frontend 3D Avatar to speak dynamically
+        self.pending_alerts.append(item)
+
+        # 4. Optional local TTS Fallback (espeak-ng) if UI is closed
         try:
             os.system(f'espeak "{item["message"]}"')
         except:
             pass
+
+    def pop_alerts(self):
+        alerts = self.pending_alerts.copy()
+        self.pending_alerts.clear()
+        return alerts
 
     def get_all(self):
         return self.schedules

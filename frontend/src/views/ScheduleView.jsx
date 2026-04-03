@@ -59,57 +59,62 @@ const ScheduleView = () => {
         <h1>Task Scheduler</h1>
       </header>
 
-      <section className="add-reminder-card">
-        <h3>Add New Reminder</h3>
-        <form onSubmit={handleAdd}>
-          <div className="input-group">
+      <section className="add-reminder-card bg-black/30 p-6 rounded-2xl border border-white/10 mb-8 backdrop-blur-xl">
+        <h3 className="text-lg font-bold mb-4 opacity-90">New Task Parameter</h3>
+        <form onSubmit={handleAdd} className="flex flex-col gap-4">
+          <div className="flex gap-4">
             <input 
               type="text" 
-              placeholder="Title (e.g. Drink Water)" 
+              className="glass-input flex-1"
+              placeholder="Task Title (e.g. Security Sweep)" 
               value={newReminder.title}
               onChange={e => setNewReminder({...newReminder, title: e.target.value})}
             />
-          </div>
-          <div className="input-group">
-            <input 
-              type="text" 
-              placeholder="Message (optional)" 
-              value={newReminder.message}
-              onChange={e => setNewReminder({...newReminder, message: e.target.value})}
-            />
-          </div>
-          <div className="input-group">
             <input 
               type="datetime-local" 
+              className="glass-input w-1/3 text-white/50"
               value={newReminder.time}
               onChange={e => setNewReminder({...newReminder, time: e.target.value})}
             />
           </div>
-          <button type="submit" disabled={loading} className="submit-btn text-white bg-blue-600 rounded-lg py-2 px-4 flex items-center justify-center gap-2">
-            <Plus size={20} />
-            {loading ? 'Setting...' : 'Schedule Task'}
-          </button>
+          <div className="flex gap-4">
+            <input 
+              type="text" 
+              className="glass-input flex-1"
+              placeholder="Detailed Message (optional)" 
+              value={newReminder.message}
+              onChange={e => setNewReminder({...newReminder, message: e.target.value})}
+            />
+            <button type="submit" disabled={loading} className="submit-btn text-black bg-[#00ffff] font-bold rounded-xl py-3 px-6 flex items-center justify-center gap-2 hover:scale-105 hover:shadow-[0_0_20px_rgba(0,255,255,0.4)] transition-all">
+              <Plus size={20} />
+              {loading ? 'Committing...' : 'Establish Task'}
+            </button>
+          </div>
         </form>
       </section>
 
       <section className="reminders-list">
-        <h3>Active Reminders</h3>
+        <h3 className="text-lg font-bold mb-4 opacity-90">Active Protocol Timers</h3>
         {reminders.length === 0 ? (
-          <p className="empty-msg">No pending tasks</p>
+          <div className="bg-black/20 p-6 rounded-2xl border border-white/5 text-center text-white/40">
+            No pending tasks detected in queue.
+          </div>
         ) : (
-          <div className="reminders-grid">
+          <div className="reminders-grid flex flex-col gap-4">
             {reminders.map(rem => (
-              <div key={rem.id} className={`reminder-item ${rem.status}`}>
-                <div className="rem-info">
-                  <Bell size={18} className="rem-icon" />
+              <div key={rem.id} className={`reminder-item flex justify-between items-center p-5 rounded-2xl border backdrop-blur-md ${rem.status === 'completed' ? 'bg-white/5 border-white/5 opacity-50' : 'bg-[#00ffff]/10 border-[#00ffff]/30 shadow-[0_4px_20px_rgba(0,255,255,0.05)]'}`}>
+                <div className="rem-info flex items-center gap-4">
+                  <div className={`p-3 rounded-full ${rem.status === 'completed' ? 'bg-white/10' : 'bg-[#00ffff]/20 text-[#00ffff]'}`}>
+                     <Clock size={20} />
+                  </div>
                   <div>
-                    <h4>{rem.title}</h4>
-                    <p>{new Date(rem.time).toLocaleString()}</p>
-                    {rem.message && <span className="rem-msg">{rem.message}</span>}
+                    <h4 className="font-bold text-lg">{rem.title}</h4>
+                    <p className="text-sm opacity-60 mt-1 uppercase tracking-widest">{new Date(rem.time).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}</p>
+                    {rem.message && <span className="block mt-2 text-sm text-white/70 italic p-2 bg-black/30 rounded-lg">{rem.message}</span>}
                   </div>
                 </div>
-                <button onClick={() => handleDelete(rem.id)} className="delete-btn">
-                  <Trash2 size={18} />
+                <button onClick={() => handleDelete(rem.id)} className="delete-btn p-3 bg-red-500/10 text-red-400 border border-red-500/20 rounded-xl hover:bg-red-500 hover:text-white hover:shadow-[0_0_15px_rgba(255,0,0,0.5)] transition-all">
+                  <Trash2 size={20} />
                 </button>
               </div>
             ))}

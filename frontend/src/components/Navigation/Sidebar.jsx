@@ -21,10 +21,14 @@ const Sidebar = ({ currentView, setView, isOpen, onClose }) => {
   return (
     <>
       <div className={`sidebar ${isOpen ? 'open' : ''}`}>
-        <div className="sidebar-header flex justify-between items-center">
-          <h2 className="flex-1">GROOT HUD</h2>
-          <button onClick={onClose} className="p-2 hover:bg-white/10 rounded-full lg:hidden">
-            <X size={20} />
+        <div className="sidebar-header" style={{ display: 'flex', justifyContent: 'flex-end', width: '100%' }}>
+          <button 
+             onClick={onClose} 
+             style={{ background: 'transparent', border: 'none', color: '#fff', cursor: 'pointer', opacity: 0.7, padding: '5px' }}
+             onMouseOver={(e) => e.currentTarget.style.opacity = '1'}
+             onMouseOut={(e) => e.currentTarget.style.opacity = '0.7'}
+          >
+            <X size={24} />
           </button>
         </div>
         <nav className="sidebar-nav">
