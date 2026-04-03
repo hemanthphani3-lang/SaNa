@@ -14,7 +14,34 @@ VENV_PYTHON = os.path.join(BACKEND_DIR, "venv", "Scripts", "python.exe")
 
 def is_port_open(port):
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        s.settimeout(1)
         return s.connect_ex(('127.0.0.1', port)) == 0
+
+def ensure_ollama():
+    print("🧠 Checking AI Engine (Ollama)...")
+    if is_port_open(11434):
+        print("✅ AI Engine already active.")
+        return True
+    
+    print("🚀 Starting AI Engine (Ollama)...")
+    try:
+        # Start ollama serve in a new window/background
+        subprocess.Popen(["ollama", "serve"], creationflags=subprocess.CREATE_NO_WINDOW)
+        
+        # Wait for Ollama to initialize
+        retries = 15
+        while retries > 0:
+            if is_port_open(11434):
+                print("✅ AI Engine synchronized.")
+                return True
+            time.sleep(1)
+            retries -= 1
+        
+        print("❌ Error: AI Engine (Ollama) failed to start.")
+        return False
+    except Exception as e:
+        print(f"❌ Error starting Ollama: {str(e)}")
+        return False
 
 def start_backend():
     print("🚀 Starting AI Neural Core...")
@@ -26,7 +53,11 @@ def start_frontend():
     subprocess.Popen("npm run dev -- --force --port 5173 --host 127.0.0.1", cwd=FRONTEND_DIR, shell=True, creationflags=subprocess.CREATE_NO_WINDOW)
 
 def launch_hud():
-    # 1. Start Services
+    # 1. Ensure AI Model Provider is running
+    if not ensure_ollama():
+        print("⚠️ Warning: Proceeding without AI Backend (Ollama failing).")
+
+    # 2. Start Services
     start_backend()
     start_frontend()
 

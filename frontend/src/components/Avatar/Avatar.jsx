@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { Suspense } from 'react';
 import { Canvas } from '@react-three/fiber';
 import Scene3D from './Scene3D';
 
@@ -13,7 +13,9 @@ const Avatar = ({ viseme = "Neutral", expression = "Neutral", customization = {}
       minHeight: '400px'
     }}>
       <Canvas camera={{ position: [0, 0.2, 3.2], fov: 35 }}>
-        <Scene3D viseme={viseme} expression={expression} customization={customization} />
+        <Suspense fallback={null}>
+          <Scene3D viseme={viseme} expression={expression} customization={customization} />
+        </Suspense>
       </Canvas>
     </div>
   );

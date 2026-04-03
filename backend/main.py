@@ -5,6 +5,10 @@ from typing import List, Optional
 import uvicorn
 import logging
 import os
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
 
 from core.ai_engine import AIEngine
 from core.memory_manager import MemoryManager
@@ -12,6 +16,8 @@ from core.rag_handler import RAGHandler
 from core.personality_manager import PersonalityManager
 from core.hardware_detector import HardwareDetector
 from services.phoneme_extractor import PhonemeExtractor
+from services.scheduler_service import SchedulerService
+from services.system_service import SystemService
 from routes import avatar
 
 # Configure logging
@@ -37,16 +43,12 @@ capability = hardware.detect_capabilities()
 logger.info(f"System Capability Level: {capability}")
 
 ai_engine = AIEngine()
-# Scale model based on capability
-if capability == "LOW":
-    ai_engine.switch_model("phi")
-elif capability == "MINIMAL":
-    ai_engine.switch_model("tinyllama")
-
-memory = MemoryManager(db_path="backend/data/memory.db")
-rag = RAGHandler(index_path="backend/data/faiss_index.bin")
+memory = MemoryManager()
+rag = RAGHandler()
 personality = PersonalityManager()
 phonemes = PhonemeExtractor()
+scheduler = SchedulerService()
+system_utils = SystemService()
 
 class ChatRequest(BaseModel):
     message: str
@@ -62,17 +64,10 @@ class ChatResponse(BaseModel):
 @app.post("/chat", response_model=ChatResponse)
 async def chat(request: ChatRequest):
     try:
-        # 1. Retrieve Context (RAG)
         context = rag.retrieve(request.message)
         context_str = "\n".join(context)
-        
-        # 2. Get History
         history = memory.get_history()
         
-        # 3. Get Personality
-        pers_config = personality.get_personality_config(request.personality)
-        
-        # 4. Generate AI Response
         full_prompt = f"Context: {context_str}\nUser: {request.message}"
         response_text, emotion = ai_engine.generate(
             full_prompt, 
@@ -82,13 +77,10 @@ async def chat(request: ChatRequest):
             temperature=request.temperature
         )
         
-        # 5. Save to Memory
         memory.add_message("user", request.message)
         memory.add_message("assistant", response_text)
         
-        # 6. Generate Lip Sync Data
         raw_visemes = phonemes.get_visemes(response_text)
-        # Mocking duration for now (approx 0.1s per char)
         duration = len(response_text) * 0.05 
         timeline = phonemes.map_audio_duration(raw_visemes, duration)
         
@@ -97,10 +89,84 @@ async def chat(request: ChatRequest):
             emotion=emotion,
             viseme_timeline=timeline
         )
-        
     except Exception as e:
         logger.error(f"Chat error: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
+
+# --- New Scheduler Routes ---
+
+class ReminderRequest(BaseModel):
+    title: str
+    message: str
+    time: str # ISO Format
+
+@app.post("/api/schedule/add")
+async def add_reminder(request: ReminderRequest):
+    task_id = scheduler.add_reminder(request.title, request.message, request.time)
+    return {"status": "success", "id": task_id}
+
+@app.get("/api/schedule/all")
+async def get_reminders():
+    return scheduler.get_all()
+
+@app.delete("/api/schedule/{task_id}")
+async def delete_reminder(task_id: str):
+    scheduler.delete_reminder(task_id)
+    return {"status": "deleted"}
+
+# --- New System Routes ---
+
+@app.get("/api/system/stats")
+async def get_system_stats():
+    return system_utils.get_stats()
+
+class SystemCommand(BaseModel):
+    action: str
+    target: Optional[str] = None
+
+@app.post("/api/system/execute")
+async def execute_system_command(cmd: SystemCommand):
+    success = system_utils.execute_command(cmd.action, cmd.target)
+    if not success:
+        raise HTTPException(status_code=400, detail="Command execution failed")
+    return {"status": "success"}
+
+@app.get("/api/system/health")
+async def system_health():
+    """Comprehensive check of all offline services."""
+    health_status = {
+        "api": "online",
+        "ollama": "offline",
+        "rag": "offline",
+        "gpu_acceleration": "disabled",
+        "scheduler": "active" if scheduler.running else "inactive"
+    }
+    
+    # Check Ollama
+    try:
+        import requests
+        resp = requests.get("http://localhost:11434/api/tags", timeout=2)
+        if resp.status_code == 200:
+            health_status["ollama"] = "connected"
+    except:
+        pass
+
+    # Check RAG
+    try:
+        if rag.collection.count() >= 0:
+            health_status["rag"] = "initialized"
+    except:
+        pass
+
+    # Check GPU
+    if hardware.detect_capabilities() == "HIGH":
+        health_status["gpu_acceleration"] = "enabled"
+
+    return health_status
+
+@app.get("/api/chat/history")
+async def get_chat_history(limit: int = 20):
+    return memory.get_history(limit=limit)
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8000)

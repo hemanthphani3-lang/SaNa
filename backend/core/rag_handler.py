@@ -1,58 +1,70 @@
-import faiss
-import numpy as np
-from sentence_transformers import SentenceTransformer
 import os
 import json
 import logging
+import chromadb
+from chromadb.utils import embedding_functions
+from whoosh.index import create_in, open_dir
+from whoosh.fields import Schema, TEXT, ID
+from whoosh.qparser import QueryParser
+import numpy as np
 
 logger = logging.getLogger("SANKEYTHIKA.RAG")
 
 class RAGHandler:
-    def __init__(self, model_name: str = "all-MiniLM-L6-v2", index_path: str = "data/faiss_index.bin"):
-        self.model = SentenceTransformer(model_name)
+    def __init__(self, persist_directory="backend/data/chroma_db", index_path="backend/data/whoosh_index"):
+        self.persist_directory = persist_directory
         self.index_path = index_path
-        self.dim = self.model.get_sentence_embedding_dimension()
-        self.index = faiss.IndexFlatL2(self.dim)
-        self.metadata = []
-        self._load_index()
+        
+        # 1. Initialize ChromaDB
+        self.chroma_client = chromadb.PersistentClient(path=self.persist_directory)
+        self.embedding_fn = embedding_functions.SentenceTransformerEmbeddingFunction(model_name="all-MiniLM-L6-v2")
+        self.collection = self.chroma_client.get_or_create_collection(
+            name="knowledge_base", 
+            embedding_function=self.embedding_fn
+        )
 
-    def _load_index(self):
-        if os.path.exists(self.index_path):
-            self.index = faiss.read_index(self.index_path)
-            # Metadata would typically be stored in a JSON file alongside the index
-            meta_path = self.index_path.replace(".bin", ".json")
-            if os.path.exists(meta_path):
-                with open(meta_path, "r") as f:
-                    self.metadata = json.load(f)
+        # 2. Initialize Whoosh (Keyword Search)
+        self.schema = Schema(id=ID(stored=True, unique=True), content=TEXT(stored=True))
+        if not os.path.exists(self.index_path):
+            os.makedirs(self.index_path)
+            self.whoosh_idx = create_in(self.index_path, self.schema)
+        else:
+            self.whoosh_idx = open_dir(self.index_path)
 
     def add_documents(self, documents: list):
-        """
-        Expects a list of strings.
-        """
         if not documents:
             return
         
-        embeddings = self.model.encode(documents)
-        self.index.add(np.array(embeddings).astype("float32"))
-        self.metadata.extend(documents)
-        self._save_index()
+        # Add to ChromaDB
+        ids = [f"doc_{i}_{os.urandom(4).hex()}" for i in range(len(documents))]
+        self.collection.add(documents=documents, ids=ids)
 
-    def _save_index(self):
-        faiss.write_index(self.index, self.index_path)
-        meta_path = self.index_path.replace(".bin", ".json")
-        with open(meta_path, "w") as f:
-            json.dump(self.metadata, f)
+        # Add to Whoosh
+        writer = self.whoosh_idx.writer()
+        for i, doc in enumerate(documents):
+            writer.add_document(id=ids[i], content=doc)
+        writer.commit()
+        
+        logger.info(f"Added {len(documents)} documents to hybrid index.")
 
     def retrieve(self, query: str, top_k: int = 3):
-        if self.index.ntotal == 0:
-            return []
-        
-        query_embedding = self.model.encode([query])
-        distances, indices = self.index.search(np.array(query_embedding).astype("float32"), top_k)
-        
         results = []
-        for idx in indices[0]:
-            if idx != -1 and idx < len(self.metadata):
-                results.append(self.metadata[idx])
         
-        return results
+        # 1. Vector Search (ChromaDB)
+        vector_results = self.collection.query(query_texts=[query], n_results=top_k)
+        if vector_results['documents']:
+            results.extend(vector_results['documents'][0])
+
+        # 2. Keyword Search (Whoosh)
+        try:
+            with self.whoosh_idx.searcher() as searcher:
+                parser = QueryParser("content", self.whoosh_idx.schema)
+                q = parser.parse(query)
+                keyword_results = searcher.search(q, limit=top_k)
+                for hit in keyword_results:
+                    if hit['content'] not in results:
+                        results.append(hit['content'])
+        except Exception as e:
+            logger.error(f"Whoosh search error: {e}")
+
+        return results[:top_k]

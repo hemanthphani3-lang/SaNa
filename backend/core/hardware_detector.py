@@ -3,6 +3,12 @@ import os
 import platform
 import logging
 
+try:
+    import torch
+    TORCH_AVAILABLE = True
+except ImportError:
+    TORCH_AVAILABLE = False
+
 logger = logging.getLogger("SANKEYTHIKA.Hardware")
 
 class HardwareDetector:
@@ -38,13 +44,21 @@ class HardwareDetector:
         ram = self.get_ram_gb()
         vram = self.get_gpu_vram_gb()
         
-        logger.info(f"Detected RAM: {ram:.2f} GB, VRAM: {vram:.2f} GB")
+        # Check Torch Device support
+        device = "cpu"
+        if TORCH_AVAILABLE:
+            if torch.cuda.is_available():
+                device = "cuda"
+            elif hasattr(torch.backends, 'mps') and torch.backends.mps.is_available():
+                device = "mps"
         
-        if vram >= 6:
-            return "HIGH" # Mistral 7B (NVIDIA GPU)
+        logger.info(f"Detected RAM: {ram:.2f} GB, VRAM: {vram:.2f} GB, AI Device: {device}")
+        
+        if vram >= 6 or device == "cuda":
+            return "HIGH" # Optimized for Llama3/Mistral with GPU acceleration
         elif ram >= 16:
-            return "MEDIUM" # Mistral 7B (CPU/Low GPU)
+            return "MEDIUM" # Large models possible on CPU
         elif ram >= 4:
-            return "LOW" # Phi-2 / TinyLlama
+            return "LOW" # Small models (Phi-2)
         else:
-            return "MINIMAL" # Offline fallback/Simple responses
+            return "MINIMAL" # Fallback mode

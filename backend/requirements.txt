@@ -14,3 +14,12 @@ soundfile
 pydantic
 python-dotenv
 espeakng
+chromadb
+scikit-learn
+whoosh
+psutil
+pycryptodome
+schedule
+pyautogui
+plyer
+nvidia-ml-py3

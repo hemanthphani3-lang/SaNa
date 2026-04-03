@@ -198,7 +198,6 @@ const Scene3D = ({ viseme, customization }) => {
   return (
     <>
       <color attach="background" args={['#080a0f']} />
-      <Environment preset="city" />
       <ambientLight intensity={0.5} />
       <directionalLight position={[2, 4, 4]} intensity={1.8} castShadow />
       <directionalLight position={[-3, 2, -3]} intensity={0.4} color="#a0c4ff" />
