@@ -7,9 +7,10 @@ const ScheduleView = () => {
   const [newReminder, setNewReminder] = useState({ title: '', message: '', time: '' });
   const [loading, setLoading] = useState(false);
 
+  const BACKEND = 'http://192.168.0.108:8000';
   const fetchReminders = async () => {
     try {
-      const response = await fetch('http://localhost:8000/api/schedule/all');
+      const response = await fetch(`${BACKEND}/api/schedule/all`);
       const data = await response.json();
       setReminders(data);
     } catch (err) {
@@ -26,10 +27,9 @@ const ScheduleView = () => {
   const handleAdd = async (e) => {
     e.preventDefault();
     if (!newReminder.title || !newReminder.time) return;
-
     setLoading(true);
     try {
-      await fetch('http://localhost:8000/api/schedule/add', {
+      await fetch(`${BACKEND}/api/schedule/add`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(newReminder)
@@ -45,7 +45,7 @@ const ScheduleView = () => {
 
   const handleDelete = async (id) => {
     try {
-      await fetch(`http://localhost:8000/api/schedule/${id}`, { method: 'DELETE' });
+      await fetch(`${BACKEND}/api/schedule/${id}`, { method: 'DELETE' });
       fetchReminders();
     } catch (err) {
       alert("Failed to delete reminder");

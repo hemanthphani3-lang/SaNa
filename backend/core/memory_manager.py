@@ -4,28 +4,59 @@ import os
 import logging
 import base64
 
-logger = logging.getLogger("SANKEYTHIKA.Memory")
+import zipfile
+import datetime
+
+logger = logging.getLogger("Groot.Memory")
 
 class MemoryManager:
-    def __init__(self, db_path: str = "backend/data/memory.db", secret_key: str = "sankeythika-fallback-key"):
-        os.makedirs(os.path.dirname(db_path), exist_ok=True)
-        self.db_path = db_path
-        # Key bypassed
-        self.conn = sqlite3.connect(db_path, check_same_thread=False)
+    def __init__(self, db_path: str = "backend/data/memory.db"):
+        self.db_path = os.path.abspath(db_path)
+        self.archive_dir = os.path.join(os.path.dirname(self.db_path), "archives")
+        os.makedirs(self.archive_dir, exist_ok=True)
+        
+        # 400MB rotation threshold
+        self.rotate_threshold = 400 * 1024 * 1024 
+        
+        self.conn = sqlite3.connect(self.db_path, check_same_thread=False)
         self._setup_db()
 
-    def _get_or_create_key(self, fallback):
-        key_path = "backend/data/.secret.key"
-        if os.path.exists(key_path):
-            with open(key_path, "rb") as f:
-                return f.read()
-        else:
-            # Derive a 32-byte key
-            salt = b'sankey_salt_123'
-            key = PBKDF2(fallback, salt, dkLen=32, count=1000)
-            with open(key_path, "wb") as f:
-                f.write(key)
-            return key
+    def _check_rotation(self):
+        """Checks if the database exceeds 400MB and archives it if necessary."""
+        if os.path.exists(self.db_path) and os.path.getsize(self.db_path) > self.rotate_threshold:
+            logger.info(f"💾 Database size exceeded 400MB. Initiating Archive Rotation...")
+            self._archive_current_db()
+
+    def _archive_current_db(self):
+        """Closes connection, zips the DB, and starts a fresh one."""
+        try:
+            self.conn.close()
+            
+            timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+            archive_name = f"groot_memory_{timestamp}.db"
+            archive_path = os.path.join(self.archive_dir, archive_name)
+            zip_path = archive_path + ".zip"
+            
+            # Move current DB to archive name
+            os.rename(self.db_path, archive_path)
+            
+            # Zip the file
+            with zipfile.ZipFile(zip_path, 'w', zipfile.ZIP_DEFLATED) as zipf:
+                zipf.write(archive_path, archive_name)
+            
+            # Delete the unzipped archive file
+            os.remove(archive_path)
+            
+            logger.info(f"✅ Archive complete: {zip_path}")
+            
+            # Re-init fresh DB
+            self.conn = sqlite3.connect(self.db_path, check_same_thread=False)
+            self._setup_db()
+            
+        except Exception as e:
+            logger.error(f"❌ Failed to archive database: {str(e)}")
+            # Attempt to reconnect if failed
+            self.conn = sqlite3.connect(self.db_path, check_same_thread=False)
 
     def _encrypt(self, text):
         return text
@@ -52,6 +83,7 @@ class MemoryManager:
         self.conn.commit()
 
     def add_message(self, role: str, content: str):
+        self._check_rotation()
         encrypted_content = self._encrypt(content)
         cursor = self.conn.cursor()
         cursor.execute("INSERT INTO conversation (role, content) VALUES (?, ?)", (role, encrypted_content))

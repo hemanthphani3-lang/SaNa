@@ -7,9 +7,10 @@ const Customizer = ({ customization, setCustomization }) => {
   useEffect(() => {
     const fetchVoices = () => {
       const voices = window.speechSynthesis.getVoices();
-      // Filter for English voices & prefer offline (localService)
-      const enVoices = voices.filter(v => v.lang.startsWith('en'));
-      setAvailableVoices(enVoices.slice(0, 15));
+      // Show all voices & prefer offline (localService)
+      const allVoices = voices;
+      setAvailableVoices(allVoices.slice(0, 25)); // Show a few more
+
     };
     
     fetchVoices();
@@ -145,6 +146,11 @@ const Customizer = ({ customization, setCustomization }) => {
           <option>Hindi</option>
           <option>Telugu</option>
           <option>Tamil</option>
+          <option>Malayalam</option>
+          <option>Kannada</option>
+          <option>Bengali</option>
+          <option>Marathi</option>
+          <option>Gujarati</option>
         </select>
       </div>
     </div>

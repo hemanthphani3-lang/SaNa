@@ -9,7 +9,7 @@ from datetime import datetime
 from plyer import notification
 import requests
 
-logger = logging.getLogger("SANKEYTHIKA.Scheduler")
+logger = logging.getLogger("Groot.Scheduler")
 
 class SchedulerService:
     def __init__(self, storage_path="backend/data/schedules.json"):
@@ -83,7 +83,7 @@ class SchedulerService:
             notification.notify(
                 title=f"Groot: {item['title']}",
                 message=item['message'],
-                app_name="SANKEYTHIKA",
+                app_name="Groot",
                 timeout=10
             )
         except Exception as e:

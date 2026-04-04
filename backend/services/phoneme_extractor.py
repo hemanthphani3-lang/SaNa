@@ -2,7 +2,7 @@ import subprocess
 import re
 import logging
 
-logger = logging.getLogger("SANKEYTHIKA.Phonemes")
+logger = logging.getLogger("Groot.Phonemes")
 
 class PhonemeExtractor:
     def __init__(self, espeak_path: str = r"C:\Program Files\eSpeak NG\espeak-ng.exe"):

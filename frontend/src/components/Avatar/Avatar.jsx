@@ -2,7 +2,7 @@ import React, { Suspense } from 'react';
 import { Canvas } from '@react-three/fiber';
 import Scene3D from './Scene3D';
 
-const Avatar = ({ viseme = "Neutral", expression = "Neutral", customization = {} }) => {
+const Avatar = ({ viseme = "Neutral", emotion = "Neutral", action = "idle", customization = {} }) => {
   return (
     <div className="avatar-wrapper" style={{ 
       width: '100%', 
@@ -12,9 +12,10 @@ const Avatar = ({ viseme = "Neutral", expression = "Neutral", customization = {}
       alignItems: 'center',
       minHeight: '400px'
     }}>
-      <Canvas camera={{ position: [0, 0.2, 3.2], fov: 35 }}>
+      {/* Configure Canvas with alpha: true so the parent div background shows through */}
+      <Canvas camera={{ position: [0, 0.2, 3.2], fov: 35 }} gl={{ alpha: true }}>
         <Suspense fallback={null}>
-          <Scene3D viseme={viseme} expression={expression} customization={customization} />
+          <Scene3D viseme={viseme} emotion={emotion} action={action} customization={customization} />
         </Suspense>
       </Canvas>
     </div>

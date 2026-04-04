@@ -2,12 +2,12 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Mic, Send, Wifi, WifiOff, RefreshCw } from 'lucide-react';
 import axios from 'axios';
 
-const BACKEND = 'http://localhost:8000';
+const BACKEND = 'http://192.168.0.108:8000';
 const POLL_INTERVAL_MS = 5000; // check backend every 5s when offline
 
-const ChatView = ({ setVisemeTimeline, customization, speak }) => {
+const ChatView = ({ setVisemeTimeline, customization, speak, setAction, setEmotion }) => {
   const [messages, setMessages] = useState([
-    { role: 'assistant', content: 'Hello! I am Groot. How can I help you today?' }
+    { role: 'assistant', content: 'Greetings. I am Groot, your neural assistant. How may I be of service today?' }
   ]);
   const [input, setInput] = useState('');
   const [isRecording, setIsRecording] = useState(false);
@@ -18,6 +18,16 @@ const ChatView = ({ setVisemeTimeline, customization, speak }) => {
   const recognitionRef = useRef(null);
   const scrollContainerRef = useRef(null);
   const pollTimerRef = useRef(null);
+
+  const _classifyEmotion = (text) => {
+    const t = text.toLowerCase();
+    if (t.match(/\b(happy|great|awesome|perfect|good news|wonderful|delight|smile|joy|funny|haha|lol)\b/)) return 'Happy';
+    if (t.match(/\b(wow|excited|amazing|incredible|love|unbelievable|super|epic|brilliant|!|whoa)\b/)) return 'Excited';
+    if (t.match(/\b(sorry|sad|unfortunate|unhappy|regret|pity|grief|depress|lonely|hard day|tough|pain)\b/)) return 'Sad';
+    if (t.match(/\b(stop|don't|refuse|never|unfair|annoy|frustrat|wrong|hate|mad|angry|shut up)\b/)) return 'Angry';
+    if (t.match(/\b(what\?|really\?|can't believe|unexpected|surprise|unusual|shock)\b/)) return 'Surprised';
+    return 'Neutral';
+  };
 
   // ── Backend health check ──────────────────────────────────────────────────
   const checkBackend = useCallback(async (silent = false) => {
@@ -49,7 +59,12 @@ const ChatView = ({ setVisemeTimeline, customization, speak }) => {
     'English': 'en-US',
     'Hindi': 'hi-IN',
     'Telugu': 'te-IN',
-    'Tamil': 'ta-IN'
+    'Tamil': 'ta-IN',
+    'Malayalam': 'ml-IN',
+    'Kannada': 'kn-IN',
+    'Bengali': 'bn-IN',
+    'Marathi': 'mr-IN',
+    'Gujarati': 'gu-IN'
   };
 
   // ── Speech recognition ────────────────────────────────────────────────────
@@ -120,6 +135,15 @@ const ChatView = ({ setVisemeTimeline, customization, speak }) => {
       setIsSearching(true);
     }
     
+    // Check for greetings (hi, hey, hello)
+    const lowerText = text.toLowerCase();
+    if (lowerText.match(/\b(hi|hey|hello)\b/)) {
+        if (setAction) {
+            setAction('wave');
+            setTimeout(() => setAction('idle'), 2500); // Stop waving after 2.5s
+        }
+    }
+    
     // Add empty assistant shell for streaming
     setMessages(prev => [...prev, { role: 'assistant', content: '' }]);
 
@@ -168,8 +192,18 @@ const ChatView = ({ setVisemeTimeline, customization, speak }) => {
         });
       }
       
+      const detectedEmotion = _classifyEmotion(fullReply);
       setIsSearching(false);
-      if (speak) speak(fullReply);
+      if (setEmotion) setEmotion(detectedEmotion);
+      
+      // Trigger Waving Animation on Greeting
+      const isGreeting = fullReply.toLowerCase().match(/\b(hi|hello|hey|greetings|namaste|vanakkam|namaskara)\b/);
+      if (isGreeting && setAction) {
+        setAction('wave');
+        setTimeout(() => setAction(null), 3000);
+      }
+      
+      if (speak) speak(fullReply, customization.language, detectedEmotion);
 
     } catch (error) {
       console.error("Streaming error:", error);
@@ -187,7 +221,7 @@ const ChatView = ({ setVisemeTimeline, customization, speak }) => {
   };
 
   // ── Status bar color/icon ─────────────────────────────────────────────────
-  const statusColor = backendOnline === null ? '#f59e0b' : backendOnline ? '#6ee7b7' : '#f87171';
+  const statusColor = backendOnline === null ? '#f59e0b' : backendOnline ? '#DFB86C' : '#f87171';
   const statusLabel = backendOnline === null ? 'Connecting…' : backendOnline ? 'AI Online' : 'AI Offline';
   const StatusIcon = backendOnline ? Wifi : WifiOff;
 
@@ -275,7 +309,7 @@ const ChatView = ({ setVisemeTimeline, customization, speak }) => {
               letterSpacing: '0.06em',
               textTransform: 'uppercase',
               marginBottom: '4px',
-              color: m.role === 'user' ? '#a78bfa' : (m.isError || m.isOfflineNote) ? '#f87171' : '#6ee7b7',
+              color: m.role === 'user' ? '#e2e8f0' : (m.isError || m.isOfflineNote) ? '#f87171' : '#DFB86C',
               paddingLeft: m.role === 'user' ? 0 : '4px',
               paddingRight: m.role === 'user' ? '4px' : 0,
             }}>
@@ -291,9 +325,9 @@ const ChatView = ({ setVisemeTimeline, customization, speak }) => {
               fontSize: '15px',
               lineHeight: '1.6',
               ...(m.role === 'user' ? {
-                background: 'linear-gradient(135deg, #7c3aed 0%, #4f46e5 100%)',
+                background: 'linear-gradient(135deg, #0A1128 0%, #02040A 100%)',
                 color: '#fff',
-                boxShadow: '0 4px 20px rgba(124,58,237,0.4)',
+                boxShadow: '0 4px 20px rgba(223,184,108,0.2)',
               } : m.isError || m.isOfflineNote ? {
                 background: 'rgba(248,113,113,0.08)',
                 color: '#fca5a5',
@@ -301,7 +335,7 @@ const ChatView = ({ setVisemeTimeline, customization, speak }) => {
               } : {
                 background: 'rgba(255,255,255,0.06)',
                 color: '#e2e8f0',
-                border: '1px solid rgba(110,231,183,0.2)',
+                border: '1px solid rgba(223,184,108,0.2)',
                 boxShadow: '0 2px 12px rgba(0,0,0,0.3)',
               }),
             }}>
@@ -321,7 +355,7 @@ const ChatView = ({ setVisemeTimeline, customization, speak }) => {
             borderRadius: '20px',
             width: 'fit-content',
             marginBottom: '10px',
-            color: '#00ffff',
+            color: '#DFB86C',
             fontSize: '11px',
             fontWeight: '600',
             letterSpacing: '0.06em',
@@ -335,20 +369,20 @@ const ChatView = ({ setVisemeTimeline, customization, speak }) => {
         {/* Typing indicator */}
         {isSearching === false && isTyping && (
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
-            <span style={{ fontSize: '11px', fontWeight: 600, color: '#6ee7b7', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '4px', paddingLeft: '4px' }}>
-              SANKEYTHIKA
+            <span style={{ fontSize: '11px', fontWeight: 600, color: '#DFB86C', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '4px', paddingLeft: '4px' }}>
+              Groot
             </span>
             <div style={{
               padding: '14px 20px',
               borderRadius: '20px 20px 20px 4px',
               background: 'rgba(255,255,255,0.06)',
-              border: '1px solid rgba(110,231,183,0.2)',
+              border: '1px solid rgba(223,184,108,0.2)',
               display: 'flex', gap: '5px', alignItems: 'center',
             }}>
               {[0, 1, 2].map(i => (
                 <span key={i} style={{
                   width: '7px', height: '7px', borderRadius: '50%',
-                  background: '#6ee7b7',
+                  background: '#DFB86C',
                   display: 'inline-block',
                   animation: `bounce 1.2s ${i * 0.2}s infinite`,
                 }} />
@@ -400,7 +434,7 @@ const ChatView = ({ setVisemeTimeline, customization, speak }) => {
           onChange={e => setInput(e.target.value)}
           onKeyPress={e => e.key === 'Enter' && handleSend()}
           placeholder={backendOnline === false ? 'Backend offline — reconnecting…' : 'Type your message…'}
-          onFocus={e => e.target.style.borderColor = '#7c3aed'}
+          onFocus={e => e.target.style.borderColor = '#DFB86C'}
           onBlur={e => e.target.style.borderColor = 'rgba(255,255,255,0.12)'}
         />
 
@@ -411,11 +445,11 @@ const ChatView = ({ setVisemeTimeline, customization, speak }) => {
             flexShrink: 0,
             width: '48px', height: '48px',
             borderRadius: '14px', border: 'none',
-            background: input.trim() ? 'linear-gradient(135deg, #7c3aed, #4f46e5)' : 'rgba(255,255,255,0.05)',
+            background: input.trim() ? 'linear-gradient(135deg, #DFB86C, #B8860B)' : 'rgba(255,255,255,0.05)',
             color: input.trim() ? '#fff' : '#555',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             cursor: input.trim() ? 'pointer' : 'not-allowed',
-            boxShadow: input.trim() ? '0 4px 16px rgba(124,58,237,0.4)' : 'none',
+            boxShadow: input.trim() ? '0 4px 16px rgba(223,184,108,0.2)' : 'none',
             transition: 'all 0.2s ease',
           }}
         >

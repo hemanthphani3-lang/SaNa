@@ -9,7 +9,7 @@ try:
 except ImportError:
     TORCH_AVAILABLE = False
 
-logger = logging.getLogger("SANKEYTHIKA.Hardware")
+logger = logging.getLogger("Groot.Hardware")
 
 class HardwareDetector:
     @staticmethod

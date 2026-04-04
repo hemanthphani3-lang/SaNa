@@ -64,18 +64,16 @@ class ChatRequest(BaseModel):
 class ChatResponse(BaseModel):
     response: str
     emotion: str
+    lang: str
     viseme_timeline: List[dict]
 
 @app.post("/chat", response_model=ChatResponse)
 async def chat(request: ChatRequest):
     try:
-        context = rag.retrieve(request.message)
-        context_str = "\n".join(context)
         history = memory.get_history()
         
-        full_prompt = f"Context: {context_str}\nUser: {request.message}"
-        response_text, emotion = ai_engine.generate(
-            full_prompt, 
+        response_text, emotion, lang = ai_engine.generate(
+            request.message, 
             personality=request.personality, 
             language=request.language,
             history=history,
@@ -92,6 +90,7 @@ async def chat(request: ChatRequest):
         return ChatResponse(
             response=response_text,
             emotion=emotion,
+            lang=lang,
             viseme_timeline=timeline
         )
     except Exception as e:
@@ -101,27 +100,23 @@ async def chat(request: ChatRequest):
 @app.post("/chat_stream")
 async def chat_stream(request: ChatRequest):
     try:
-        context = rag.retrieve(request.message)
-        context_str = "\n".join(context)
         history = memory.get_history()
         
-        full_prompt = f"Context: {context_str}\nUser: {request.message}"
-
         def event_stream():
-            full_text = ""
+            total_reply = ""
             for token in ai_engine.generate_stream(
-                full_prompt, 
+                request.message, 
                 personality=request.personality, 
                 language=request.language,
                 history=history,
                 temperature=request.temperature
             ):
-                full_text += token
+                total_reply += token
                 yield token
             
             # Save memory after completion
             memory.add_message("user", request.message)
-            memory.add_message("assistant", full_text)
+            memory.add_message("assistant", total_reply)
 
         return StreamingResponse(event_stream(), media_type="text/plain")
     except Exception as e:
@@ -171,19 +166,33 @@ async def execute_system_command(cmd: SystemCommand):
         raise HTTPException(status_code=400, detail="Command execution failed")
     return {"status": "success"}
 
+@app.get("/api/chat/history")
+async def get_chat_history(limit: int = 50):
+    """Returns conversation history for the History Archives view."""
+    history = memory.get_history(limit=limit)
+    return {"history": history, "count": len(history)}
+
 @app.get("/api/system/health")
 async def system_health():
     """Comprehensive check of all offline services."""
+    import socket
+    def port_open(port):
+        try:
+            s = socket.socket()
+            s.settimeout(0.5)
+            s.connect(('127.0.0.1', port))
+            s.close()
+            return True
+        except:
+            return False
+
     return {
         "api": "online",
-        "ollama": "connected" if os.system("curl -s http://localhost:11434/api/tags > nul") == 0 else "offline",
+        "ollama": "connected" if port_open(11434) else "offline",
+        "rag": "initialized",
         "gpu": hardware.detect_capabilities(),
         "scheduler": "active" if hasattr(scheduler, 'running') and scheduler.running else "inactive"
     }
-
-@app.get("/api/chat/history")
-async def get_chat_history(limit: int = 20):
-    return memory.get_history(limit=limit)
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8000)

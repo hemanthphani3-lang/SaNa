@@ -3,7 +3,7 @@ from bs4 import BeautifulSoup
 import logging
 import socket
 
-logger = logging.getLogger("SANKEYTHIKA.InternetService")
+logger = logging.getLogger("Groot.InternetService")
 
 class InternetService:
     @staticmethod
@@ -61,8 +61,4 @@ class InternetService:
                 
         except Exception as e:
             logger.error(f"Hybrid Search Unsuccessful: {str(e)}")
-            return None
-            
-        except Exception as e:
-            logger.error(f"Neural Search Blocked or Error: {str(e)}")
             return None

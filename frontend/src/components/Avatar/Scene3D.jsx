@@ -39,9 +39,15 @@ const visemeToExpression = {
   'I':       VRMExpressionPresetName.Ih,
   'O':       VRMExpressionPresetName.Oh,
   'U':       VRMExpressionPresetName.Ou,
-  'M':       VRMExpressionPresetName.Neutral,
-  'F':       VRMExpressionPresetName.Aa,
-  'T':       VRMExpressionPresetName.Ee,
+};
+
+const emotionToExpression = {
+  'Happy':     VRMExpressionPresetName.Happy,
+  'Excited':   VRMExpressionPresetName.Happy, // VRM standard uses Happy for excitement too
+  'Sad':       VRMExpressionPresetName.Sad,
+  'Surprised': VRMExpressionPresetName.Surprised,
+  'Angry':     VRMExpressionPresetName.Angry,
+  'Neutral':   VRMExpressionPresetName.Neutral,
 };
 
 const MOUTH_EXPRS = [
@@ -52,32 +58,40 @@ const MOUTH_EXPRS = [
   VRMExpressionPresetName.Ou,
 ];
 
+const EMOTION_EXPRS = [
+  VRMExpressionPresetName.Happy,
+  VRMExpressionPresetName.Sad,
+  VRMExpressionPresetName.Surprised,
+  VRMExpressionPresetName.Angry,
+];
+
+
 // ─── Arm pose helper ──────────────────────────────────────────────────────────
-function applyRestPose(vrm) {
+function applyRestPose(vrm, excludeRight = false) {
   const humanoid = vrm.humanoid;
   if (!humanoid) return;
 
   const setRot = (name, x, y, z) => {
-    // Attempt normalized bone name first (v1), then fall back to node search
     const node = humanoid.getNormalizedBoneNode?.(name) || humanoid.getBoneNode?.(name);
     if (!node) return;
     node.rotation.set(x, y, z);
     node.rotation.order = 'XYZ';
   };
 
-  // Natural Standing (A-Pose): Ensure arms are down and relaxed
-  // Using radians: -1.35 is ~77 degrees down
+  // Natural Standing (A-Pose)
   setRot('leftUpperArm',   0, 0, -1.35);
   setRot('leftLowerArm',   0, 0, -0.1);
   setRot('leftHand',       0, 0, -0.1);
 
-  setRot('rightUpperArm',  0, 0,  1.35);
-  setRot('rightLowerArm',  0, 0,  0.1);
-  setRot('rightHand',      0, 0,  0.1);
+  if (!excludeRight) {
+    setRot('rightUpperArm',  0, 0,  1.35);
+    setRot('rightLowerArm',  0, 0,  0.1);
+    setRot('rightHand',      0, 0,  0.1);
+  }
 }
 
 // ─── VRM Model Component ──────────────────────────────────────────────────────
-const VRMModel = ({ url, viseme, customization }) => {
+const VRMModel = ({ url, viseme, emotion, action, customization }) => {
   const vrmRef = useRef(null);
   const { scene } = useThree();
   const [status, setStatus] = useState('loading'); // 'loading' | 'ready' | 'error'
@@ -105,8 +119,8 @@ const VRMModel = ({ url, viseme, customization }) => {
         if (!vrm) { setStatus('error'); return; }
 
         VRMUtils.rotateVRM0(vrm);            // flip VRM0 to Three.js Y-up
-        vrm.scene.position.set(0, -1.5, 0);
-        vrm.scene.scale.setScalar(1.4);
+        vrm.scene.position.set(0, -0.8, 0);
+        vrm.scene.scale.setScalar(0.9);
 
         applyRestPose(vrm);                  // arms down before adding to scene
 
@@ -167,16 +181,66 @@ const VRMModel = ({ url, viseme, customization }) => {
     if (!vrm) return;
 
     vrm.update(delta);
-    applyRestPose(vrm);
+    applyRestPose(vrm, action === 'wave'); // Don't snap right arm back to A-pose if waving
 
-    // Lip sync
+    // --- Coordinated Human Wave V2 (Smoothed) ---
+    if (action === 'wave') {
+      const rightUpper = vrm.humanoid?.getNormalizedBoneNode?.('rightUpperArm');
+      const rightLower = vrm.humanoid?.getNormalizedBoneNode?.('rightLowerArm');
+      const rightHand  = vrm.humanoid?.getNormalizedBoneNode?.('rightHand');
+      
+      const time = state.clock.elapsedTime;
+      const waveSpeed = 7.5; // Natural speed
+      
+      if (rightUpper && rightLower && rightHand) {
+         // 1. Smoothly lift the entire arm into position
+         // Shoulder lift (Z) and forward tilt (X)
+         const upperXTgt = -0.5;
+         const upperZTgt = -1.25;
+         rightUpper.rotation.x = THREE.MathUtils.lerp(rightUpper.rotation.x, upperXTgt, 6 * delta);
+         rightUpper.rotation.z = THREE.MathUtils.lerp(rightUpper.rotation.z, upperZTgt, 6 * delta);
+         
+         // 2. Coordinated Wave Motion
+         const sinWave = Math.sin(time * waveSpeed);
+         
+         // Elbow swing (Side to Side)
+         const lowerZTgt = sinWave * 0.45;
+         const lowerXTgt = (sinWave * 0.3) + 0.6; // Keep forearm raised
+         rightLower.rotation.x = THREE.MathUtils.lerp(rightLower.rotation.x, lowerXTgt, 8 * delta);
+         rightLower.rotation.z = THREE.MathUtils.lerp(rightLower.rotation.z, lowerZTgt, 8 * delta);
+         
+         // 3. Trailing Wrist (Lags behind for fluidity)
+         const handZTgt = Math.sin(time * waveSpeed - 0.5) * 0.35;
+         rightHand.rotation.z = THREE.MathUtils.lerp(rightHand.rotation.z, handZTgt, 10 * delta);
+         
+         rightUpper.rotation.order = 'XYZ';
+         rightLower.rotation.order = 'XYZ';
+         rightHand.rotation.order = 'XYZ';
+      }
+    }
+
+    // Lip sync & Emotional Expressions
     const em = vrm.expressionManager;
     if (em) {
-      const target = visemeToExpression[viseme] || VRMExpressionPresetName.Neutral;
+      const targetViseme = visemeToExpression[viseme] || VRMExpressionPresetName.Neutral;
+      const targetEmotion = emotionToExpression[emotion] || VRMExpressionPresetName.Neutral;
+
+      // Handle Mouth (Visemes)
       MOUTH_EXPRS.forEach((expr) => {
         const cur = em.getValue(expr) ?? 0;
-        const tgt = expr === target ? 1.0 : 0.0;
+        const tgt = expr === targetViseme ? 1.0 : 0.0;
         em.setValue(expr, THREE.MathUtils.lerp(cur, tgt, 14 * delta));
+      });
+
+      // Handle Emotions (Exaggerate slightly for better visualization)
+      EMOTION_EXPRS.forEach((expr) => {
+        const cur = em.getValue(expr) ?? 0;
+        let tgt = expr === targetEmotion ? 0.8 : 0.0;
+        
+        // If excited, crank it up!
+        if (emotion === 'Excited' && expr === VRMExpressionPresetName.Happy) tgt = 1.0;
+
+        em.setValue(expr, THREE.MathUtils.lerp(cur, tgt, 4 * delta)); // Slower transitions for emotions
       });
 
       // Blinking
@@ -187,6 +251,7 @@ const VRMModel = ({ url, viseme, customization }) => {
       em.setValue(VRMExpressionPresetName.BlinkLeft, blinkVal);
       em.setValue(VRMExpressionPresetName.BlinkRight, blinkVal);
     }
+
 
     // Idle head sway
     const head = vrm.humanoid?.getNormalizedBoneNode?.('head');
@@ -211,22 +276,21 @@ const VRMModel = ({ url, viseme, customization }) => {
 };
 
 // ─── Main Scene ───────────────────────────────────────────────────────────────
-const Scene3D = ({ viseme, customization }) => {
+const Scene3D = ({ viseme, emotion, action, customization }) => {
   const avatarUrl = customization?.avatarUrl || '/models/avatar.vrm';
 
   return (
     <>
-      <color attach="background" args={['#080a0f']} />
       <ambientLight intensity={0.5} />
       <directionalLight position={[2, 4, 4]} intensity={1.8} castShadow />
       <directionalLight position={[-3, 2, -3]} intensity={0.4} color="#a0c4ff" />
       <pointLight position={[0, 1, 2]} intensity={0.5} color={customization?.skinColor || '#ffddcc'} />
 
       <ErrorBoundary>
-        <VRMModel url={avatarUrl} viseme={viseme} customization={customization} />
+        <VRMModel url={avatarUrl} viseme={viseme} emotion={emotion} action={action} customization={customization} />
       </ErrorBoundary>
 
-      <ContactShadows position={[0, -1.5, 0]} opacity={0.3} scale={8} blur={2} far={3} />
+      <ContactShadows position={[0, -0.8, 0]} opacity={0.3} scale={8} blur={2} far={3} />
     </>
   );
 };

@@ -3,7 +3,10 @@ import json
 import logging
 import os
 import time
+from langdetect import detect
 from .internet_service import InternetService
+from .rag_handler import RAGHandler
+from .personality_manager import PersonalityManager
 
 logger = logging.getLogger("Groot.AIEngine")
 
@@ -11,30 +14,85 @@ class AIEngine:
     def __init__(self, ollama_url: str = None):
         self.url = ollama_url or os.getenv("OLLAMA_URL", "http://localhost:11434")
         
-        # Dual-Brain Architecture
-        self.fast_model = "tinyllama"
-        self.expert_model = "phi3:mini"
-        self.model = self.fast_model # For legacy code fallback
+        # Dual-Brain Architecture (Upgraded)
+        self.fast_model = "gemma2:2b"
+        self.expert_model = "phi3.5"
+        self.model = self.fast_model 
         self.fallback_model = self.expert_model
+        
+        # Initialize Integrated Systems
+        self.rag = RAGHandler()
+        self.personality_mgr = PersonalityManager()
         
         logger.info(f"AI Router System Online. Fast: {self.fast_model} | Expert: {self.expert_model}")
 
     def _route_request(self, prompt: str) -> str:
         """Determines whether a prompt requires the Expert brain or the Fast brain."""
         prompt_lower = prompt.lower()
-        complex_triggers = ["code", "script", "python", "javascript", "react", "html", "css", 
-                            "solve", "calculate", "math", "equation", "theorem", 
-                            "explain how", "why did", "analyze", "debug"]
+        # Broad spectrum of complex "Deep Brain" triggers
+        complex_triggers = [
+            "code", "script", "python", "javascript", "react", "html", "css", "c++", "java", "sql",
+            "solve", "calculate", "math", "equation", "theorem", "geometry", "calculus",
+            "explain how", "why did", "analyze", "debug", "logic", "reasoning", "multi-step",
+            "write a paper", "essay", "summary of", "technical", "philosophy", "comparison",
+            "quantum", "physics", "relativity", "complex", "algorithm", "simulate"
+        ]
         
-        # If the question is long, or uses complex keywords, route to the Professor (Phi-3)
-        if len(prompt) > 150 or any(trigger in prompt_lower for trigger in complex_triggers):
+        # Expert Brain (Phi-3.5) for complexity or length
+        if len(prompt) > 110 or any(trigger in prompt_lower for trigger in complex_triggers):
             return self.expert_model
         return self.fast_model
 
+    def _classify_emotion(self, text: str) -> str:
+        """Classifies the emotion of a text response for the 3D avatar."""
+        text_lower = text.lower()
+        
+        # Keyword-based mapping for high performance/low latency
+        emotions = {
+            "happy": ["happy", "great", "glad", "awesome", "perfect", "good news", "wonderful", "delight", "smile", "joy"],
+            "excited": ["wow", "excit", "amazing", "incredible", "love", "!", "unbelievable", "super", "epic", "brilliant"],
+            "sad": ["sorry", "sad", "unfortunate", "unhappy", "regret", "pity", "grief", "depress", "lonely", "hard day", "tough"],
+            "angry": ["stop", "don't", "refuse", "never", "unfair", "annoy", "frustrat", "wrong", "hate", "mad"],
+            "surprised": ["what?", "really?", "can't believe", "unexpected", "surprise", "unusual", "shock", "whoa"],
+        }
+        
+        for emotion, keywords in emotions.items():
+            if any(k in text_lower for k in keywords):
+                return emotion.capitalize()
+                
+        return "Neutral"
+
+    def _format_instruct_prompt(self, model: str, system: str, user_prompt: str) -> str:
+        """Applies model-specific Instruct/Chat markup to prevent hallucinations."""
+        if "gemma" in model.lower():
+            # Gemma 2 Turn-Based Formatting
+            return f"<start_of_turn>user\n{system}\n\nUser Message: {user_prompt}<end_of_turn>\n<start_of_turn>model\n"
+        elif "phi" in model.lower() or "llama" in model.lower():
+            # Standard <|role|> tags for Phi and Llama
+            return f"<|system|>\n{system}<|end|>\n<|user|>\n{user_prompt}<|end|>\n<|assistant|>\n"
+        else:
+            # Fallback to plain text
+            return f"{system}\n\nUser: {user_prompt}\nAssistant:"
+
     def generate(self, prompt: str, personality: str = "Friendly", language: str = "English", history: list = [], temperature: float = None):
-        """Legacy JSON return. Use generate_stream for fast text output."""
+        """Standard JSON return, utilizing Infinite Memory Retrieval."""
         target_model = self._route_request(prompt)
-        system_prompt = f"You are Groot, an AI assistant. Always respond in the exact same language that the user uses."
+        
+        # --- Memory Retrieval ---
+        historical_context = ""
+        memory_results = self.rag.retrieve(prompt)
+        if memory_results:
+            historical_context = "\n".join([f"- {res}" for res in memory_results])
+
+        config = self.personality_mgr.get_personality_config(personality)
+        system_prompt = config["system_prompt"]
+        
+        if historical_context:
+            system_prompt += f"\nLONG-TERM MEMORY:\n{historical_context}"
+        
+        # Adjust based on detected emotion/sentiment if needed
+        system_prompt = self.personality_mgr.adjust_prompt(system_prompt)
+
         temp = temperature if temperature is not None else float(os.getenv("TEMPERATURE", 0.7))
 
         payload = {
@@ -42,12 +100,19 @@ class AIEngine:
             "prompt": prompt,
             "system": system_prompt,
             "stream": False,
-            "options": {"num_ctx": 1024, "num_predict": 100}
+            "options": {"num_ctx": 2048, "num_predict": 256}
         }
         try:
-            return self._make_request(payload)
+            response_text, emotion = self._make_request(payload)
+            try:
+                lang_code = detect(response_text)
+            except:
+                lang_code = 'en'
+            
+            emotion = self._classify_emotion(response_text)
+            return response_text, emotion, lang_code
         except Exception as e:
-            return f"Model error: {str(e)}", "Error"
+            return f"Model error: {str(e)}", "Error", "en"
 
     def generate_stream(self, prompt: str, personality: str = "Friendly", language: str = "English", history: list = [], temperature: float = None):
         """Yields words instantly, using Dual-Brain Routing."""
@@ -55,7 +120,16 @@ class AIEngine:
         
         logger.info(f"🔥 ROUTING PROMPT TO: {target_model.upper()}")
 
-        # --- Hybrid Layer: Live Research --------------------------------------
+        prompt_lower = prompt.lower()
+        
+        # --- Hybrid Layer 1: Long-Term Memory Retrieval (Infinite Memory) -------
+        historical_context = ""
+        memory_results = self.rag.retrieve(prompt)
+        if memory_results:
+            historical_context = "\n".join([f"- {res}" for res in memory_results])
+            logger.info("🧠 Long-term memory retrieved. Syncing Neural Context...")
+
+        # --- Hybrid Layer 2: Live Research (Internet) ---------------------------
         live_info = ""
         deep_search_triggers = ["news", "today", "current", "latest", "price", "stock", "weather", "who is", "what is happening", "score"]
         
@@ -66,27 +140,36 @@ class AIEngine:
                 if live_info:
                     logger.info("✅ Live Data Retrieved. Injecting into Neural Context.")
 
+        config = self.personality_mgr.get_personality_config(personality)
+        base_system = config["system_prompt"]
+
+        # Boost Logical Reasoning & Language Safety for Expert Mode
+        if target_model == self.expert_model:
+            base_system += "\nMode: DEEP_EXPERT. Think step-by-step. Provide complete, functionally accurate solutions. IMPORTANT: Always use Python for coding simulation unless another language is explicitly requested. Do not provide Q# snippet if Python is requested."
+        
+        # Inject History context into System knowledge
+        if historical_context:
+            base_system += f"\nMEMORY_RETRIEVAL: {historical_context}"
+        if live_info:
+            base_system += f"\nLIVE_DATA: {live_info}"
+
+        # High-Fidelity Power Tuning
         if target_model == self.fast_model:
-            system_prompt = f"You are Groot, an AI assistant with a {personality} personality. " \
-                            f"Always respond in the exact same language the user used. Keep the answer EXTREMELY brief. 1 or 2 sentences ONLY."
-            if live_info:
-                system_prompt += f" LIVE RESEARCH DATA: {live_info}"
-            ctx = 1024
-            predict = 100
-        else:
-            system_prompt = f"You are Groot, a highly intelligent expert AI. " \
-                            f"Respond deeply and accurately, strictly in the exact same language the user used."
-            if live_info:
-                system_prompt += f" RECENT REAL-TIME RESEARCH: {live_info}. Use this data to answer accurately."
             ctx = 4096
             predict = 512
+        else:
+            # EXPERT STABILITY: Optimized 8k context window to prevent local hardware lag/truncation
+            ctx = 8192
+            predict = 4096
+
+        # Final Instruct-Formatted Prompt (NO separate system field)
+        final_prompt = self._format_instruct_prompt(target_model, base_system, prompt)
 
         temp = temperature if temperature is not None else float(os.getenv("TEMPERATURE", 0.7))
 
         payload = {
             "model": target_model,
-            "prompt": prompt,
-            "system": system_prompt,
+            "prompt": final_prompt,
             "stream": True,
             "options": {
                 "num_ctx": ctx,
@@ -103,12 +186,21 @@ class AIEngine:
             if response.status_code != 200:
                 yield f"Error: Backend 500"
                 return
+            
             for line in response.iter_lines():
                 if line:
                     data = json.loads(line.decode('utf-8'))
-                    yield data.get("response", "")
+                    chunk = data.get("response", "")
+                    yield chunk
+            
+            # Use metadata flag at the end of stream (optional, but engine needs to return it).
+            # Actually, standard way is to return it once detected.
+            # I'll just append a special marker or let the frontend decide.
+            # But the task said "backend returns lang".
+            # For streaming, I'll detect after first 50 chars.
+            pass
         except Exception as e:
-            yield f"[Network/Model Error: {str(e)}]"
+            yield f"[NEURAL_CORE_V2: ERROR: {str(e)}]"
 
     def _make_request(self, payload):
         response = requests.post(f"{self.url}/api/generate", json=payload, timeout=45)

@@ -10,7 +10,7 @@ try:
 except ImportError:
     PNVML_AVAILABLE = False
 
-logger = logging.getLogger("SANKEYTHIKA.SystemService")
+logger = logging.getLogger("Groot.SystemService")
 
 class SystemService:
     def __init__(self):

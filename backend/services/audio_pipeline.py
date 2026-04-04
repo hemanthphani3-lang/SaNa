@@ -3,7 +3,7 @@ import os
 import logging
 from typing import Optional
 
-logger = logging.getLogger("SANKEYTHIKA.Audio")
+logger = logging.getLogger("Groot.Audio")
 
 class AudioPipeline:
     def __init__(self, model_size: str = "base"):

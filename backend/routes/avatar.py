@@ -3,7 +3,7 @@ import os
 import logging
 import shutil
 
-logger = logging.getLogger("SANKEYTHIKA.AvatarRouter")
+logger = logging.getLogger("Groot.AvatarRouter")
 router = APIRouter()
 
 def get_models_dir():
